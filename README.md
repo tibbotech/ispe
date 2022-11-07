@@ -36,6 +36,12 @@ mkimage -l ./isp.h.script.raw.tmp
 ./ispe ./ISPBOOOT.BIN -vvv sets ./mysript.raw
 ```
 
+### Extract <len> (decimal) data from the offset <hoff> (hex)
+```
+./ispe ./ISPBOOOT.bin -vvvv extb 0x100 16
+```
+Extracts 16 bytes starting at 0x100 offset into 'isp.b.100.16' file
+
 ### Remove the partition
 ```
 ./ispe ./ISPBOOOT.bin -vvvv delp rootfs

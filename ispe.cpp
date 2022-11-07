@@ -6,6 +6,7 @@
 #include <arpa/inet.h>  // htohl
 #include <unistd.h>     // ftruncate
 #include <sys/stat.h>   // stat()
+#include <stdlib.h>     // strtol()
 #include "isp.h"
 
 #define TMP_PFX "isp."
@@ -23,6 +24,7 @@ int ispimg_W_hdr( FILE *_fp, isp_hdr_t &_HDR);
 int isp_list( const char *_fname);
 int isp_exts( const char *_fname);
 int isp_extp( const char *_fname, const char *_pname);
+int isp_extb( const char *_fname, const off_t _off, const size_t _len);
 int isp_delp( const char *_fname, const char *_pname);
 int isp_wipp( const char *_fname, const char *_pname);
 int isp_sets( const char *_fname, const char *_sname);
@@ -35,6 +37,7 @@ int main( int argc, char *argv[]) {
    printf( "\tlist - list partitions in the image\n");
    printf( "\texts - extract header script\n");
    printf( "\textp <name> - extract partition\n");
+   printf( "\textb <hoff> <dlen> - extract <dlen> (dec) bytes at <hoff> (hex) offset\n");
    printf( "\tsets <file> - update header script from script image file\n");
    printf( "\tdelp <name> - delete partition from the image\n");
    printf( "\twipp <name> - wipe the partition keeping general info\n");
@@ -45,28 +48,31 @@ int main( int argc, char *argv[]) {
  if ( dbg) aoff++;
  char *Iname = argv[ 1];
  if ( dbg) printf( "dbg0: IMG: %s\n", Iname);
- char *cmd = NULL;
- char *arg = NULL;
  if ( argc <= aoff) {
    printf( "ERR: No cmd, run %s for help\n", argv[ 0]);
    return( 1);  }
- if ( strcmp( argv[ aoff], "list") == 0) cmd = argv[ aoff];
- if ( strcmp( argv[ aoff], "exts") == 0) cmd = argv[ aoff];
- if ( strcmp( argv[ aoff], "sets") == 0) {
+ char *cmd = argv[ aoff];
+ char *arg0 = NULL, *arg1 = NULL;
+ if ( strcmp( cmd, "sets") == 0) {
    if ( aoff + 1 >= argc) {
      printf( "ERR: script filename is reqired. See help\n");
      return( 1);  }
-   cmd = argv[ aoff];
-   arg = argv[ aoff + 1];
+   arg0 = argv[ aoff + 1];
  }
- if ( strcmp( argv[ aoff], "extp") == 0 || strcmp( argv[ aoff], "delp") == 0 ||
-      strcmp( argv[ aoff], "wipp") == 0
+ if ( strcmp( cmd, "extp") == 0 || strcmp( cmd, "delp") == 0 ||
+      strcmp( cmd, "wipp") == 0
     ) {
    if ( aoff + 1 >= argc) {
      printf( "ERR: partition name is reqired. See help\n");
      return( 1);  }
-   cmd = argv[ aoff];
-   arg = argv[ aoff + 1];
+   arg0 = argv[ aoff + 1];
+ }
+ if ( strcmp( cmd, "extb") == 0) {
+   if ( aoff + 2 >= argc) {
+     printf( "ERR: <offset> and <len> are reqired. See help\n");
+     return( 1);  }
+   arg0 = argv[ aoff + 1];
+   arg1 = argv[ aoff + 2];
  }
  if ( !cmd) {
    printf( "ERR: Unknown cmd, run %s for help\n", argv[ 0]);
@@ -78,10 +84,11 @@ int main( int argc, char *argv[]) {
  int ret = 0;
  if ( strcmp( cmd, "list") == 0) ret = isp_list( Iname);
  if ( strcmp( cmd, "exts") == 0) ret = isp_exts( Iname);
- if ( strcmp( cmd, "extp") == 0) ret = isp_extp( Iname, arg);
- if ( strcmp( cmd, "sets") == 0) ret = isp_sets( Iname, arg);
- if ( strcmp( cmd, "delp") == 0) ret = isp_delp( Iname, arg);
- if ( strcmp( cmd, "wipp") == 0) ret = isp_wipp( Iname, arg);
+ if ( strcmp( cmd, "extp") == 0) ret = isp_extp( Iname, arg0);
+ if ( strcmp( cmd, "extb") == 0) ret = isp_extb( Iname, strtol( arg0, NULL, 16), atoi( arg1));
+ if ( strcmp( cmd, "sets") == 0) ret = isp_sets( Iname, arg0);
+ if ( strcmp( cmd, "delp") == 0) ret = isp_delp( Iname, arg0);
+ if ( strcmp( cmd, "wipp") == 0) ret = isp_wipp( Iname, arg0);
  return( ret);  }
 
 // set script for the image
@@ -200,6 +207,40 @@ int isp_wipp( const char *_fname, const char *_pname) {
  if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
  return( 0);  }
 
+// extract _len bytes of binary data starting at _off
+int isp_extb( const char *_fname, const off_t _off, const size_t _len) {
+ if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ isp_hdr_t HDR;
+ FILE *Ifp = ispimg_R_hdr( _fname, "rb", HDR);
+ if ( !Ifp) return( 1);
+ FILE *Ofp;
+ char buf[ 2048];
+ sprintf( buf, TMP_PFX"b.%lX.%ld", _off, _len);
+ if ( !( Ofp = fopen( buf, "wb"))) {
+   printf( "ERR: can't create file %s: %s(%d)\n", buf, strerror(errno), errno);
+   fclose( Ifp);  return( 1);  }
+ if ( fseek( Ifp, _off, SEEK_SET) != 0) {
+   printf( "ERR: at pos %lX: %s(%d)\n", _off, strerror( errno), errno);
+   fclose( Ofp);  fclose( Ifp);  return( 1);  }
+ int ret = 0;
+ size_t sz = sizeof( buf), szr, len = _len;
+ if ( dbg) printf( "dbg0: dumping %ld bytes from 0x%lX pos\n", _len, _off);
+ while ( len > 0) {
+   if ( sz > len) sz = len;
+   if ( dbg > 1) printf( "dbg1: reading %ld bytes\n", sz);
+   if ( ( szr = fread( buf, 1, sz, Ifp)) < 0) {
+     printf( "ERR: read %ld bytes failed: %s(%d)\n", sz, strerror( errno), errno);
+     ret = 1;  break;  }
+   if ( dbg > 1) printf( "dbg1: writing %ld bytes\n", szr);
+   if ( fwrite( buf, szr, 1, Ofp) != 1) {
+     printf( "ERR: write %ld bytes failed: %s(%d)\n", szr, strerror( errno), errno);
+     ret = 1;  break;  }
+   len -= szr;  }
+ fclose( Ofp);
+ fclose( Ifp);
+ if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ return( ret);  }
+
 // extract partition from the image
 int isp_extp( const char *_fname, const char *_pname) {
  if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
@@ -217,7 +258,7 @@ int isp_extp( const char *_fname, const char *_pname) {
  char buf[ 2048];
  sprintf( buf, TMP_PFX"p.%s", _pname);
  if ( !( Ofp = fopen( buf, "wb"))) {
-   printf( "ERR: can't create file %s: %s(%d)\n", _pname, strerror(errno), errno);
+   printf( "ERR: can't create file %s: %s(%d)\n", buf, strerror(errno), errno);
    fclose( Ifp);  return( 1);  }
  if ( fseek( Ifp, P->file_offset, SEEK_SET) != 0) {
    printf( "ERR: '%s' at pos %X: %s(%d)\n", _fname, P->file_offset, strerror( errno), errno);
