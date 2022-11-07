@@ -24,6 +24,7 @@ int isp_list( const char *_fname);
 int isp_exts( const char *_fname);
 int isp_extp( const char *_fname, const char *_pname);
 int isp_delp( const char *_fname, const char *_pname);
+int isp_wipp( const char *_fname, const char *_pname);
 int isp_sets( const char *_fname, const char *_sname);
 
 int main( int argc, char *argv[]) {
@@ -36,6 +37,7 @@ int main( int argc, char *argv[]) {
    printf( "\textp <name> - extract partition\n");
    printf( "\tsets <file> - update header script from script image file\n");
    printf( "\tdelp <name> - delete partition from the image\n");
+   printf( "\twipp <name> - wipe the partition keeping general info\n");
    return( 1);  }
  uint8_t aoff = 2, i = 0;
  if ( argc > aoff) while ( argv[ aoff][ ++i] == 'v') dbg++;
@@ -57,7 +59,9 @@ int main( int argc, char *argv[]) {
    cmd = argv[ aoff];
    arg = argv[ aoff + 1];
  }
- if ( strcmp( argv[ aoff], "extp") == 0 || strcmp( argv[ aoff], "delp") == 0) {
+ if ( strcmp( argv[ aoff], "extp") == 0 || strcmp( argv[ aoff], "delp") == 0 ||
+      strcmp( argv[ aoff], "wipp") == 0
+    ) {
    if ( aoff + 1 >= argc) {
      printf( "ERR: partition name is reqired. See help\n");
      return( 1);  }
@@ -77,6 +81,7 @@ int main( int argc, char *argv[]) {
  if ( strcmp( cmd, "extp") == 0) ret = isp_extp( Iname, arg);
  if ( strcmp( cmd, "sets") == 0) ret = isp_sets( Iname, arg);
  if ( strcmp( cmd, "delp") == 0) ret = isp_delp( Iname, arg);
+ if ( strcmp( cmd, "wipp") == 0) ret = isp_wipp( Iname, arg);
  return( ret);  }
 
 // set script for the image
@@ -125,7 +130,7 @@ int isp_sets( const char *_fname, const char *_sname) {
    ret = 1;  }
  // writing the script part /
  fclose( Ifp);
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
  return( ret);  }
 
 // extract script from the image
@@ -163,17 +168,38 @@ int isp_exts( const char *_fname) {
    printf( "ERR: write %ld bytes failed: %s(%d)\n", sizeof( buf), strerror( errno), errno);
    ret = 1;  }
  fclose( Ofp);
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
  return( ret);  }
 
 isp_part_t *find_part( isp_hdr_t &_hdr, const char *_pname, uint8_t &_idx) {
  isp_part_t *P = NULL;
  for ( int i = 0; i < NUM_OF_PARTITION; i++) {
-   if ( i > 0 && _hdr.partition_info[ i].partition_size < 1) continue;
+   if ( i > 0 && _hdr.partition_info[ i].file_offset < 1) continue;
    if ( strcmp( _pname, ( const char *)_hdr.partition_info[ i].file_name) != 0) continue;
    P = &( _hdr.partition_info[ i]);  _idx = i;  break;  }
  return( P);  }
  
+// wipe partition from the image
+int isp_wipp( const char *_fname, const char *_pname) {
+ if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ isp_hdr_t HDR;
+ FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
+ if ( !Ifp) return( 1);
+ // search for the partition
+ uint8_t pIdx;
+ isp_part_t *P = find_part( HDR, _pname, pIdx);
+ if ( !P) {
+   printf( "ERR: partition '%s' not found\n", _pname);
+   fclose( Ifp);  return( 1);  }
+ if ( dbg) printf( "dbg0: Found '%s'[%d] partition at %X\n", _pname, pIdx, P->file_offset);
+ // wipe info
+ memset( P->md5sum, 0, sizeof( P->md5sum));
+ P->file_size = 0;
+ if ( ispimg_W_hdr( Ifp, HDR) != 0) {  fclose( Ifp);  return( 1);  }
+ fclose( Ifp);
+ if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ return( 0);  }
+
 // extract partition from the image
 int isp_extp( const char *_fname, const char *_pname) {
  if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
@@ -186,7 +212,7 @@ int isp_extp( const char *_fname, const char *_pname) {
  if ( !P) {
    printf( "ERR: partition '%s' not found\n", _pname);
    fclose( Ifp);  return( 1);  }
- if ( dbg) printf( "dbg0: Found '%s' partition at %X\n", _pname, P->file_offset);
+ if ( dbg) printf( "dbg0: Found '%s'[%d] partition at %X\n", _pname, pIdx, P->file_offset);
  FILE *Ofp;
  char buf[ 2048];
  sprintf( buf, TMP_PFX"p.%s", _pname);
@@ -214,7 +240,7 @@ int isp_extp( const char *_fname, const char *_pname) {
  // reading partition... /
  fclose( Ofp);
  fclose( Ifp);
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
  return( ret);  }
 
 // delete partition from the image
@@ -229,26 +255,33 @@ int isp_delp( const char *_fname, const char *_pname) {
  if ( !P) {
    printf( "ERR: partition '%s' not found\n", _pname);
    fclose( Ifp);  return( 1);  }
- if ( dbg) printf( "dbg0: Found '%s' partition at %X\n", _pname, P->file_offset);
+ if ( dbg) printf( "dbg0: Found '%s'[%d] partition at %X\n", _pname, pIdx, P->file_offset);
+ isp_part_t *Pn = &( HDR.partition_info[ pIdx + 1]);    // next partition
+ if ( Pn->file_offset < 1) Pn = NULL;
+ if ( dbg &&  Pn) printf( "dbg0: Next part '%s' is at %X\n", Pn->file_name, Pn->file_offset);
+ if ( dbg && !Pn) printf( "dbg0: This partition is last one\n");
  struct stat fst;
  if ( fstat( fileno( Ifp), &fst) != 0) {
    printf( "ERR: stat failed: %s(%d)\n", strerror( errno), errno);
    fclose( Ifp);  return( 1);  }
- if ( dbg) printf( "dbg0: (I/P/F) size: %ld/%ld/%ld\n", fst.st_size, P->partition_size, P->file_size);
  off_t Isize = fst.st_size;
+ if ( dbg) printf( "dbg0: (I/P/F) size: %ld/%ld/%ld\n", Isize, P->partition_size, P->file_size);
  off_t Psize = P->partition_size;
  // if RESERVED partition size ends after the image file end... 
  if ( P->partition_size + P->file_offset > ( uint64_t)Isize) {
-   printf( "WRN: End of part %lX after the EOF:%lX\n", Psize + P->file_offset, Isize);
-   printf( "WRN: using P->file_size: %ld instead\n", P->file_size);
-   printf( "WRN: P s:%X l:%lX\n", P->file_offset, P->file_size);
-   Psize = P->file_size;  }
+   printf( "WRN: Part ends at %lX, after the EOF:%lX\n", Psize + P->file_offset, Isize);
+   Psize = P->file_size;
+   printf( "WRN: assuming Psize = %ld (file_size)\n", Psize);  }
+ if ( Pn && ( P->file_offset + Psize) > Pn->file_offset) {
+   printf( "WRN: Part ends at %lX, after next part start offset:%X\n", P->file_offset + Psize, Pn->file_offset);
+   Psize = Pn->file_offset - P->file_offset;
+   printf( "WRN: assuming Psize = %ld (offsets diff)\n", Psize);  }
  off_t truncate_size = Isize - Psize;
  off_t R_off = P->file_offset + Psize;      // read starting from ...
  off_t W_off = P->file_offset;              // write starting from ...
  off_t move_size = Isize - ( P->file_offset + Psize);
  if ( move_size < 1) printf( "WRN: 0 bytes to move ?!\n");
- if ( dbg) printf( "dbg0: %ld bytes to move\n", move_size);
+ if ( dbg) printf( "dbg0: %ld bytes to move, %ld bytes for delete\n", move_size, Psize);
  char buf[ 2048];
  off_t i = 0;
  off_t szr = 0, btr = 0;
@@ -273,13 +306,16 @@ int isp_delp( const char *_fname, const char *_pname) {
    i += szr;  }
  if ( dbg) printf( "dbg0: %ld bytes moved from %lX to %lX\n", move_size, R_off, W_off);
  // wipe part info from header and save it
- if ( dbg) printf( "dbg0: Saving HDR...\n");
+ if ( dbg) printf( "dbg0: Updating HDR...\n");
  // move parts pointers if there are something after
  for ( int i = pIdx; i < NUM_OF_PARTITION; i++) {
-   if ( i > 0 && HDR.partition_info[ i].partition_size < 1) continue;
-   HDR.partition_info[ i].file_offset -= Psize;
+   P = &( HDR.partition_info[ i]);
+   if ( i > 0 && P->file_offset < 1) memset( P, 0, sizeof( *P));
+   memcpy( P, &( HDR.partition_info[ i + 1]), sizeof( *P));
+   if ( i > 0 && P->file_offset < 1) break;
+   if ( dbg) printf( "dbg0: shift '%s'[%d] %X -%lX\n", P->file_name, i, P->file_offset, Psize);
+   P->file_offset -= Psize;
  }
- memset( P, 0, sizeof( *P));
  if ( ispimg_W_hdr( Ifp, HDR) != 0) {  fclose( Ifp);  return( 1);  }
  // truncate the result
  if ( dbg) printf( "dbg0: truncating I from %ld to %ld bytes (-%ld)...\n", Isize, truncate_size, ( Isize - truncate_size));
@@ -287,6 +323,7 @@ int isp_delp( const char *_fname, const char *_pname) {
    printf( "ERR: truncating: %s(%d)\n", strerror( errno), errno);
    fclose( Ifp);  return( 1);  }
  fclose( Ifp);
+ if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
  return( 0);  }
 
 // show image info
@@ -312,9 +349,11 @@ int isp_list( const char *_fname) {
  }
  printf( "\tflags: 0x%X\n", HDR.flags);
  isp_part_t *P = NULL;
+ off_t leop;
  for ( int i = 0; i < NUM_OF_PARTITION; i++) {
-   if ( i > 0 && HDR.partition_info[ i].partition_size < 1) continue;
+   if ( i > 0 && HDR.partition_info[ i].file_offset < 1) continue;
    P = &( HDR.partition_info[ i]);
+   leop = P->file_offset + P->partition_size;
    printf( "PARTITION%d\n", i);
    printf( "\tfilename: %s\n", P->file_name);
    printf( "\tmd5sum: %s\n", P->md5sum);
@@ -324,12 +363,10 @@ int isp_list( const char *_fname) {
    printf( "\tpart size: %ld\n", P->partition_size);
    printf( "\tflags: 0x%X\n", P->flags);
    printf( "\temmc part start block: %d\n", P->emmc_partition_start);
- }
- off_t leof = P->file_offset + P->file_size;
- if ( P && fst.st_size > 0 && leof < fst.st_size) {
-   printf( "WRN: last part data ends at %lX\n", leof);
-   printf( "WRN: while img len is %lX\n", fst.st_size);
-   printf( "WRN: %ld bytes is garbage?\n", ( fst.st_size - leof));
+   if ( fst.st_size < leop) {
+     printf( "WRN: virtually ends at %ld (%ld bytes after)\n", leop, ( leop - fst.st_size));
+     printf( "WRN: image eof is at %ld\n", fst.st_size);
+   }
  }
  if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
  return( 0);  }
