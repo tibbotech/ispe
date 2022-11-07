@@ -30,6 +30,17 @@ sed 's/\x00*$//' ./isp.h.script.raw > ./isp.h.script.raw.tmp
 mkimage -l ./isp.h.script.raw.tmp
 ```
 
+### Update the header script from script text file:
+```
+./script_enc.sh ./myscript.txt ./myscript.raw
+./ispe ./ISPBOOOT.BIN -vvv sets ./mysript.raw
+```
+
+### Remove the partition
+```
+./ispe ./ISPBOOOT.bin -vvvv delp rootfs
+```
+
 ### Extract all partitions:
 ```
 ./ispe ./ISPBOOOT.BIN list | grep "filename" | \
