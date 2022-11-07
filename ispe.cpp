@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <stddef.h>
 #include <arpa/inet.h>  // htohl
+#include <unistd.h>     // ftruncate
 #include "isp.h"
 
 #define TMP_PFX "isp."
@@ -15,10 +16,13 @@ uint8_t dbg = 0;
 void p_hex( uint8_t *_x, uint32_t _s);
 void p_sch( uint8_t *_x, uint32_t _s);
 void init_script_hdr_parse( const unsigned char *_hdr, isp_hdr_script_t &_x);
+FILE *ispimg_R_hdr( const char *_fname, const char *_m, isp_hdr_t &_HDR);
+int ispimg_W_hdr( FILE *_fp, isp_hdr_t &_HDR);
 
 int isp_list( const char *_fname);
 int isp_exts( const char *_fname);
 int isp_extp( const char *_fname, const char *_pname);
+int isp_delp( const char *_fname, const char *_pname);
 int isp_sets( const char *_fname, const char *_sname);
 
 int main( int argc, char *argv[]) {
@@ -29,7 +33,8 @@ int main( int argc, char *argv[]) {
    printf( "\tlist - list partitions in the image\n");
    printf( "\texts - extract header script\n");
    printf( "\textp <name> - extract partition\n");
-   printf( "\tsets <file> - update header script from file\n");
+   printf( "\tsets <file> - update header script from script image file\n");
+   printf( "\tdelp <name> - delete partition from the image\n");
    return( 1);  }
  uint8_t aoff = 2, i = 0;
  if ( argc > aoff) while ( argv[ aoff][ ++i] == 'v') dbg++;
@@ -51,7 +56,7 @@ int main( int argc, char *argv[]) {
    cmd = argv[ aoff];
    arg = argv[ aoff + 1];
  }
- if ( strcmp( argv[ aoff], "extp") == 0) {
+ if ( strcmp( argv[ aoff], "extp") == 0 || strcmp( argv[ aoff], "delp") == 0) {
    if ( aoff + 1 >= argc) {
      printf( "ERR: partition name is reqired. See help\n");
      return( 1);  }
@@ -70,35 +75,14 @@ int main( int argc, char *argv[]) {
  if ( strcmp( cmd, "exts") == 0) ret = isp_exts( Iname);
  if ( strcmp( cmd, "extp") == 0) ret = isp_extp( Iname, arg);
  if ( strcmp( cmd, "sets") == 0) ret = isp_sets( Iname, arg);
+ if ( strcmp( cmd, "delp") == 0) ret = isp_delp( Iname, arg);
  return( ret);  }
-
-// _m == "rb", ...
-FILE *ispimg_read_hdr( const char *_fname, const char *_m, isp_hdr_t &_HDR) {
- FILE *Ifp;
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
- if ( !( Ifp = fopen( _fname, _m))) {
-   printf( "ERR: img '%s': %s(%d)\n", _fname, strerror( errno), errno);
-   return( NULL);  }
- long off_hdr = OFF_HDR;
- if ( fseek( Ifp, off_hdr, SEEK_SET) != 0) {
-   printf( "ERR: '%s' at pos %lX: %s(%d)\n", _fname, off_hdr, strerror( errno), errno);
-   fclose( Ifp);  return( NULL);  }
- long off_cur = ftell( Ifp);
- if ( off_hdr != off_cur) {
-   printf( "ERR: '%s' can't pos at %lX\n", _fname, off_hdr);
-   fclose( Ifp);  return( NULL);  }
- if ( dbg) printf( "dbg0: Reading %ld bytes at %lX\n", sizeof( _HDR), off_hdr);
- if ( fread( &_HDR, sizeof( _HDR), 1, Ifp) != 1) {
-   printf( "ERR: '%s' reading HDR at %lX\n", _fname, off_hdr);
-   fclose( Ifp);  return( NULL);  }
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
- return( Ifp);  }
 
 // set script for the image
 int isp_sets( const char *_fname, const char *_sname) {
  if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
  isp_hdr_t HDR;
- FILE *Ifp = ispimg_read_hdr( _fname, "r+b", HDR);
+ FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
  if ( !Ifp) return( 1);
 
  int ret = 0;
@@ -147,7 +131,7 @@ int isp_sets( const char *_fname, const char *_sname) {
 int isp_exts( const char *_fname) {
  if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
  isp_hdr_t HDR;
- FILE *Ifp = ispimg_read_hdr( _fname, "rb", HDR);
+ FILE *Ifp = ispimg_R_hdr( _fname, "rb", HDR);
  if ( !Ifp) return( 1);
  fclose( Ifp);
  int ret = 0;
@@ -181,54 +165,88 @@ int isp_exts( const char *_fname) {
  if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
  return( ret);  }
 
+isp_part_t *find_part( isp_hdr_t &_hdr, const char *_pname) {
+ isp_part_t *P = NULL;
+ for ( int i = 0; i < NUM_OF_PARTITION; i++) {
+   if ( i > 0 && _hdr.partition_info[ i].partition_size < 1) continue;
+   if ( strcmp( _pname, ( const char *)_hdr.partition_info[ i].file_name) != 0) continue;
+   P = &( _hdr.partition_info[ i]);  break;  }
+ return( P);  }
+ 
 // extract partition from the image
 int isp_extp( const char *_fname, const char *_pname) {
  if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
  isp_hdr_t HDR;
- FILE *Ifp = ispimg_read_hdr( _fname, "rb", HDR);
+ FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
  if ( !Ifp) return( 1);
- int ret = 1, found = 0;
+ // search for the partition
+ isp_part_t *P = find_part( HDR, _pname);
+ if ( !P) {
+   printf( "ERR: partition '%s' not found\n", _pname);
+   fclose( Ifp);  return( 1);  }
+ if ( dbg) printf( "dbg0: Found '%s' partition at %X\n", _pname, P->file_offset);
  FILE *Ofp;
- for ( int i = 0; i < NUM_OF_PARTITION; i++) {
-   if ( i > 0 && HDR.partition_info[ i].partition_size < 1) continue;
-   if ( strcmp( _pname, ( const char *)HDR.partition_info[ i].file_name) != 0) continue;
-   if ( dbg) printf( "dbg0: Found '%s' partition at %X\n", _pname, HDR.partition_info[ i].file_offset);
-   found = 1;
-   char buf[ 2048];
-   sprintf( buf, TMP_PFX"p.%s", _pname);
-   if ( !( Ofp = fopen( buf, "wb"))) {
-     printf( "ERR: can't create file %s: %s(%d)\n", _pname, strerror(errno), errno);
-     break;  }
-   if ( fseek( Ifp, HDR.partition_info[ i].file_offset, SEEK_SET) != 0) {
-     printf( "ERR: '%s' at pos %X: %s(%d)\n", _fname, HDR.partition_info[ i].file_offset, strerror( errno), errno);
-     fclose( Ofp);  break;  }
-   // reading partition...
-   size_t p_idx = HDR.partition_info[ i].file_size, sz = sizeof( buf), szr;
-   if ( dbg) printf( "dbg0: partition %ld bytes\n", p_idx);
-   while ( p_idx > 0) {
-     if ( sz > p_idx) sz = p_idx;
-     if ( dbg > 1) printf( "dbg1: reading %ld bytes\n", sz);
-     if ( ( szr = fread( buf, 1, sz, Ifp)) < 0) {
-       printf( "ERR: read %ld bytes failed: %s(%d)\n", sz, strerror( errno), errno);
-       fclose( Ofp); break;  }
-     if ( dbg > 1) printf( "dbg1: writing %ld bytes\n", szr);
-     if ( fwrite( buf, szr, 1, Ofp) != 1) {
-       printf( "ERR: write %ld bytes failed: %s(%d)\n", szr, strerror( errno), errno);
-       fclose( Ofp); break;  }
-     p_idx -= szr;  }
-   // reading partition... /
-   fclose( Ofp);  ret = 0;
- }
+ char buf[ 2048];
+ sprintf( buf, TMP_PFX"p.%s", _pname);
+ if ( !( Ofp = fopen( buf, "wb"))) {
+   printf( "ERR: can't create file %s: %s(%d)\n", _pname, strerror(errno), errno);
+   fclose( Ifp);  return( 1);  }
+ if ( fseek( Ifp, P->file_offset, SEEK_SET) != 0) {
+   printf( "ERR: '%s' at pos %X: %s(%d)\n", _fname, P->file_offset, strerror( errno), errno);
+   fclose( Ofp);  fclose( Ifp);  return( 1);  }
+ // reading partition...
+ size_t p_idx = P->file_size, sz = sizeof( buf), szr;
+ int ret = 0;
+ if ( dbg) printf( "dbg0: partition %ld bytes\n", p_idx);
+ while ( p_idx > 0) {
+   if ( sz > p_idx) sz = p_idx;
+   if ( dbg > 1) printf( "dbg1: reading %ld bytes\n", sz);
+   if ( ( szr = fread( buf, 1, sz, Ifp)) < 0) {
+     printf( "ERR: read %ld bytes failed: %s(%d)\n", sz, strerror( errno), errno);
+     ret = 1;  break;  }
+   if ( dbg > 1) printf( "dbg1: writing %ld bytes\n", szr);
+   if ( fwrite( buf, szr, 1, Ofp) != 1) {
+     printf( "ERR: write %ld bytes failed: %s(%d)\n", szr, strerror( errno), errno);
+     ret = 1;  break;  }
+   p_idx -= szr;  }
+ // reading partition... /
+ fclose( Ofp);
  fclose( Ifp);
- if ( !found) printf( "ERR: part '%s' not found\n", _pname);
  if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ return( ret);  }
+
+// delete partition from the image
+int isp_delp( const char *_fname, const char *_pname) {
+ if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ isp_hdr_t HDR;
+ FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
+ if ( !Ifp) return( 1);
+ // search for the partition
+ isp_part_t *P = find_part( HDR, _pname);
+ if ( !P) {
+   printf( "ERR: partition '%s' not found\n", _pname);
+   fclose( Ifp);  return( 1);  }
+ if ( dbg) printf( "dbg0: Found '%s' partition at %X\n", _pname, P->file_offset);
+ int ret = 1;
+ // move data
+ 
+ // clear part and save header
+ memset( P, 0, sizeof( *P));
+ if ( ispimg_W_hdr( Ifp, HDR) != 0) {
+   fclose( Ifp);  return( 1);  }
+ // truncate the result
+ int NNN = 0;
+ if ( ftruncate( fileno( Ifp), NNN)) {
+   printf( "ERR: truncating: %s(%d)\n", strerror( errno), errno);
+   ret = 1;  }
+ fclose( Ifp);
  return( ret);  }
 
 // show image info
 int isp_list( const char *_fname) {
  if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
  isp_hdr_t HDR;
- FILE *Ifp = ispimg_read_hdr( _fname, "rb", HDR);
+ FILE *Ifp = ispimg_R_hdr( _fname, "rb", HDR);
  fclose( Ifp);
  printf( "HEADER:\n");
  printf( "\tsign (str,%ld/%ld): %s\n", sizeof( HDR.signature), sizeof( HDR.signature), HDR.signature);
@@ -255,6 +273,46 @@ int isp_list( const char *_fname) {
    printf( "\tflags: 0x%X\n", HDR.partition_info[ i].flags);
    printf( "\temmc part start block: %d\n", HDR.partition_info[ i].emmc_partition_start);
  }
+ if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ return( 0);  }
+
+// _m == "rb", ...
+FILE *ispimg_R_hdr( const char *_fname, const char *_m, isp_hdr_t &_HDR) {
+ FILE *Ifp;
+ if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ if ( !( Ifp = fopen( _fname, _m))) {
+   printf( "ERR: img '%s': %s(%d)\n", _fname, strerror( errno), errno);
+   return( NULL);  }
+ long off_hdr = OFF_HDR;
+ if ( fseek( Ifp, off_hdr, SEEK_SET) != 0) {
+   printf( "ERR: '%s' at pos %lX: %s(%d)\n", _fname, off_hdr, strerror( errno), errno);
+   fclose( Ifp);  return( NULL);  }
+ long off_cur = ftell( Ifp);
+ if ( off_hdr != off_cur) {
+   printf( "ERR: '%s' can't pos at %lX\n", _fname, off_hdr);
+   fclose( Ifp);  return( NULL);  }
+ if ( dbg) printf( "dbg0: Reading %ld bytes at %lX\n", sizeof( _HDR), off_hdr);
+ if ( fread( &_HDR, sizeof( _HDR), 1, Ifp) != 1) {
+   printf( "ERR: '%s' reading HDR at %lX\n", _fname, off_hdr);
+   fclose( Ifp);  return( NULL);  }
+ if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ return( Ifp);  }
+
+// write header
+int ispimg_W_hdr( FILE *_fp, isp_hdr_t &_HDR) {
+ if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ long off_hdr = OFF_HDR;
+ if ( fseek( _fp, off_hdr, SEEK_SET) != 0) {
+   printf( "ERR: at pos %lX: %s(%d)\n", off_hdr, strerror( errno), errno);
+   return( -1);  }
+ long off_cur = ftell( _fp);
+ if ( off_hdr != off_cur) {
+   printf( "ERR: can't pos at %lX\n", off_hdr);
+   return( -1);  }
+ if ( dbg) printf( "dbg0: Reading %ld bytes at %lX\n", sizeof( _HDR), off_hdr);
+ if ( fread( &_HDR, sizeof( _HDR), 1, _fp) != 1) {
+   printf( "ERR: reading HDR at %lX\n", off_hdr);
+   return( -1);  }
  if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
  return( 0);  }
 
