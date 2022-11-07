@@ -36,7 +36,7 @@ mkimage -l ./isp.h.script.raw.tmp
 ./ispe ./ISPBOOOT.BIN -vvv sets ./mysript.raw
 ```
 
-### Extract <len> (decimal) data from the offset <hoff> (hex)
+### Extract binary raw data
 ```
 ./ispe ./ISPBOOOT.bin -vvvv extb 0x100 16
 ```
