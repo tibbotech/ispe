@@ -22,6 +22,7 @@ off_t _siz( FILE *_F);
 void init_script_hdr_parse( const unsigned char *_hdr, isp_hdr_script_t &_x);
 FILE *ispimg_R_hdr( const char *_fname, const char *_m, isp_hdr_t &_HDR);
 int ispimg_W_hdr( FILE *_fp, isp_hdr_t &_HDR);
+isp_part_t *find_part( isp_hdr_t &_hdr, const char *_pname, uint8_t &_idx);
 
 int isp_list( const char *_fname);
 int isp_crea( const char *_fname);
@@ -35,6 +36,7 @@ int isp_sets( const char *_fname, const char *_sname);
 int isp_setb( const char *_fname, const off_t _off, const char *_pname);
 // more commands
 int isp_flag( const char *_fname, const off_t _off);
+int isp_part_file( const char *_fname, const char *_pname, const char *_file);
 
 int main( int argc, char *argv[]) {
  if ( argc < 2 || ( argc > 1 && argv[ 1][ 0] == '-')) {
@@ -52,6 +54,7 @@ int main( int argc, char *argv[]) {
    printf( "\tsetb <0xXX> <name> - save raw binary file <name> at <0xXX> offset\n");
    printf( "\tdelp <name> - delete partition from the image\n");
    printf( "\twipp <name> - wipe the partition keeping general info\n");
+   printf( "\tpart <name> file <file> - load data for the partition from the raw file\n");
    return( 1);  }
  uint8_t aoff = 2, i = 0;
  if ( argc > aoff) while ( argv[ aoff][ ++i] == 'v') dbg++;
@@ -63,7 +66,7 @@ int main( int argc, char *argv[]) {
    printf( "ERR: No cmd, run %s for help\n", argv[ 0]);
    return( 1);  }
  char *cmd = argv[ aoff];
- char *arg0 = NULL, *arg1 = NULL;
+ char *arg0 = NULL, *arg1 = NULL, *arg2 = NULL;
  if ( strcmp( cmd, "sets") == 0) {
    if ( aoff + 1 >= argc) {
      printf( "ERR: script filename is reqired. See help\n");
@@ -86,6 +89,14 @@ int main( int argc, char *argv[]) {
    arg0 = argv[ aoff + 1];
    arg1 = argv[ aoff + 2];
  }
+ if ( strcmp( cmd, "part") == 0) {
+   if ( aoff + 2 >= argc) {
+     printf( "ERR: 4 parameters are reqired. See help\n");
+     return( 1);  }
+   arg0 = argv[ aoff + 1];
+   arg1 = argv[ aoff + 2];
+   arg2 = argv[ aoff + 3];
+ }
  if ( !cmd) {
    printf( "ERR: Unknown cmd, run %s for help\n", argv[ 0]);
    return( 1);  }
@@ -105,6 +116,9 @@ int main( int argc, char *argv[]) {
  if ( strcmp( cmd, "setb") == 0) ret = isp_setb( Iname, strtol( arg0, NULL, 16), arg1);
  if ( strcmp( cmd, "delp") == 0) ret = isp_delp( Iname, arg0);
  if ( strcmp( cmd, "wipp") == 0) ret = isp_wipp( Iname, arg0);
+ if ( strcmp( cmd, "part") == 0) {
+   if ( strcmp( arg1, "file") == 0) ret = isp_part_file( Iname, arg0, arg2);
+ }
  return( ret);  }
 
 // create an empty image
@@ -155,6 +169,35 @@ int isp_addp( const char *_fname, const char *_pname) {
  strcpy( ( char *)P->file_name, _pname);
  P->file_offset = last_off;
  int ret = ispimg_W_hdr( Ifp, HDR);
+ fclose( Ifp);
+ if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ return( ret);  }
+
+int isp_part_file( const char *_fname, const char *_pname, const char *_file) {
+ if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ isp_hdr_t HDR;
+ FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
+ if ( !Ifp) return( 1);
+ uint8_t pIdx;
+ isp_part_t *P = find_part( HDR, _pname, pIdx);
+ if ( !P) {
+   printf( "ERR: partition '%s' not found\n", _pname);
+   fclose( Ifp);  return( 1);  }
+ // FIXME: 
+ // calc md5sum (exec)
+ FILE *Sfp;
+ if ( !( Sfp = fopen( _file, "rb"))) {
+   printf( "ERR: can't open file %s: %s(%d)\n", _file, strerror(errno), errno);
+   fclose( Ifp);  return( 1);  }
+ off_t Ssize = _siz( Sfp);
+ if ( Ssize == 0) {
+   printf( "ERR: stat failed: %s(%d)\n", strerror( errno), errno);
+   fclose( Ifp);  fclose( Sfp);  return( 1);  }
+ // FIXME:
+ // expand partition and write it
+ P->file_size = Ssize;
+ int ret = ispimg_W_hdr( Ifp, HDR);
+ fclose( Sfp);
  fclose( Ifp);
  if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
  return( ret);  }
