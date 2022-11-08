@@ -46,7 +46,8 @@ Extracts 16 bytes starting at 0x100 offset into 'isp.b.100.16' file
 ```
 ./ispe ./ISPBOOOT.bin -vvvv setb 0x100 ./isp.b.100.16
 ```
-Saves the raw file contents from the file 'isp.b.100.16' to the image starting at 0x100 offset
+Saves the raw file contents from the file 'isp.b.100.16' to the image starting at 0x100 offset.
+IMG Header is protected.
 
 ### Remove the partition
 ```
@@ -56,7 +57,7 @@ Saves the raw file contents from the file 'isp.b.100.16' to the image starting a
 ### Extract all partitions:
 ```
 ./ispe ./ISPBOOOT.BIN list | grep "filename" | \
-while read pname x1; do \
+while read x0 pname; do \
   ./ispe ./ISPBOOOT.BIN extp ${pname}; \
 done;
 ```
