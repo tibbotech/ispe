@@ -1,7 +1,7 @@
 all: ispe
 
-ispe: ispe.cpp
-	$(CXX) $(CFLAGS) -Wall -o ispe ispe.cpp
+ispe: ispe.cpp utils.cpp
+	$(CXX) $(CFLAGS) -lssl -lcrypto -Wall -o ispe ispe.cpp utils.cpp
 
 clean:
 	rm -rf ./ispe

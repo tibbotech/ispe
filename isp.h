@@ -1,6 +1,9 @@
 #ifndef ISP_H
 #define ISP_H
 
+// FILE_SIZE_IMAGE_XBOOT0 + FILE_SIZE_IMAGE_UBOOT0
+#define OFF_HDR 0x100000
+
 #define SIZE_FILE_NAME 32
 #define SIZE_FULL_FILE_NAME 256
 
@@ -63,5 +66,19 @@ struct isp_hdr_script {
  uint32_t x0;
 };
 typedef struct isp_hdr_script isp_hdr_script_t;
+
+extern uint8_t dbg;
+
+void p_hex( uint8_t *_x, uint32_t _s);
+void p_sch( uint8_t *_x, uint32_t _s);
+int _pos( FILE *_F, off_t _p);
+off_t _siz( FILE *_F);
+void init_script_hdr_parse( const unsigned char *_hdr, isp_hdr_script_t &_x);
+FILE *ispimg_R_hdr( const char *_fname, const char *_m, isp_hdr_t &_HDR);
+int ispimg_W_hdr( FILE *_fp, isp_hdr_t &_HDR);
+isp_part_t *find_part( isp_hdr_t &_hdr, const char *_pname, uint8_t &_idx);
+int RW( FILE *_R, const off_t _Roff, FILE *_W, const off_t _Woff, const size_t _len);
+
+int md5sum( FILE *_F, char *_s);
 
 #endif

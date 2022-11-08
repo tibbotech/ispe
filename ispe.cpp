@@ -10,19 +10,8 @@
 #include "isp.h"
 
 #define TMP_PFX "isp."
-// FILE_SIZE_IMAGE_XBOOT0 + FILE_SIZE_IMAGE_UBOOT0
-#define OFF_HDR 0x100000
 
 uint8_t dbg = 0;
-
-void p_hex( uint8_t *_x, uint32_t _s);
-void p_sch( uint8_t *_x, uint32_t _s);
-int _pos( FILE *_F, off_t _p);
-off_t _siz( FILE *_F);
-void init_script_hdr_parse( const unsigned char *_hdr, isp_hdr_script_t &_x);
-FILE *ispimg_R_hdr( const char *_fname, const char *_m, isp_hdr_t &_HDR);
-int ispimg_W_hdr( FILE *_fp, isp_hdr_t &_HDR);
-isp_part_t *find_part( isp_hdr_t &_hdr, const char *_pname, uint8_t &_idx);
 
 int isp_list( const char *_fname);
 int isp_crea( const char *_fname);
@@ -183,8 +172,6 @@ int isp_part_file( const char *_fname, const char *_pname, const char *_file) {
  if ( !P) {
    printf( "ERR: partition '%s' not found\n", _pname);
    fclose( Ifp);  return( 1);  }
- // FIXME: 
- // calc md5sum (exec)
  FILE *Sfp;
  if ( !( Sfp = fopen( _file, "rb"))) {
    printf( "ERR: can't open file %s: %s(%d)\n", _file, strerror(errno), errno);
@@ -193,10 +180,35 @@ int isp_part_file( const char *_fname, const char *_pname, const char *_file) {
  if ( Ssize == 0) {
    printf( "ERR: stat failed: %s(%d)\n", strerror( errno), errno);
    fclose( Ifp);  fclose( Sfp);  return( 1);  }
- // FIXME:
- // expand partition and write it
+ off_t old_plen = P->file_size;
+ off_t add_len = 0;
+ if ( Ssize > old_plen) add_len = Ssize - old_plen;
+
+ isp_part_t *Pi = NULL;
+ off_t move_at = 0;
+ if ( dbg && add_len) printf( "dbg0: adding %ld bytes shift\n", add_len);
+ for ( int i = pIdx + 1; add_len > 0 && i < NUM_OF_PARTITION; i++) {
+   Pi = &( HDR.partition_info[ i]);
+   if ( Pi->file_offset < 1) break;
+   if ( move_at < 1) move_at = Pi->file_offset;
+   if ( dbg) printf( "dbg0: part '%s' off 0x%X --> 0x%lX\n", Pi->file_name, Pi->file_offset, Pi->file_offset + add_len);
+   Pi->file_offset += add_len;  }
+ // if next partition is found - move starting from its position
+ off_t Isize = _siz( Ifp);
+ int ret = 0;
+ if ( move_at) {
+   if ( dbg) printf( "dbg0: --> %ld bytes at %lX for %ld\n", Isize - move_at, move_at, add_len);
+   ret = RW( Ifp, move_at, Ifp, move_at + add_len, Isize - move_at);
+ }
+ if ( ret != 0) {  fclose( Ifp);  fclose( Sfp);  return( ret);  }
+ // save the partition table
  P->file_size = Ssize;
- int ret = ispimg_W_hdr( Ifp, HDR);
+ md5sum( Sfp, ( char *)P->md5sum);
+ if ( ispimg_W_hdr( Ifp, HDR) != 0) {  fclose( Ifp);  fclose( Sfp);  return( 1);  }
+ if ( dbg) printf( "dbg0: writing the body...\n");
+ // FIXME: zero the data inside
+ _pos( Sfp, 0);
+ ret = RW( Sfp, 0, Ifp, P->file_offset, Ssize);
  fclose( Sfp);
  fclose( Ifp);
  if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
@@ -247,38 +259,6 @@ int isp_sets( const char *_fname, const char *_sname) {
  if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
  return( ret);  }
 
-int RW( FILE *_R, const off_t _Roff, FILE *_W, const off_t _Woff, const size_t _len) {
- // if files are different - able to pos once
- if ( _R != _W) {
-   if ( dbg && _Roff) printf( "dbg0: R seek to 0x%lx\n", _Roff);
-   if ( _Roff && _pos( _R, _Roff) != 0) {
-     printf( "ERR: seek R at pos 0x%lX: %s(%d)\n", _Roff, strerror( errno), errno);
-     return( 1);  }
-   if ( dbg && _Woff) printf( "dbg0: W seek to 0x%lx\n", _Woff);
-   if ( _Woff && _pos( _W, _Woff) != 0) {
-     printf( "ERR: seek W at pos 0x%lX: %s(%d)\n", _Woff, strerror( errno), errno);
-     return( 1);  }
- }
- size_t bdone = 0;
- char buf[ 2048];
- size_t sz = sizeof( buf), szr = 0; 
- while ( bdone < _len) {
-   if ( sz > ( _len - bdone)) sz = ( _len - bdone);
-   if ( dbg > 1) printf( "dbg1: reading %ld bytes\n", sz);
-   if ( _R == _W && _pos( _R, _Roff + bdone) != 0) { 
-     printf( "ERR: seek R at pos 0x%lX\n", _Roff + bdone);  return( 1);  }
-   if ( ( szr = fread( buf, 1, sz, _R)) < 0) {
-     printf( "ERR: read %ld bytes failed: %s(%d)\n", sz, strerror( errno), errno);
-     return( 1);  }
-   if ( dbg > 1) printf( "dbg1: writing %ld bytes\n", szr);
-   if ( _R == _W && _pos( _W, _Woff + bdone) != 0) { 
-     printf( "ERR: seek W at pos 0x%lX\n", _Woff + bdone);  return( 1);  }
-   if ( fwrite( buf, szr, 1, _W) != 1) {
-     printf( "ERR: write %ld bytes failed: %s(%d)\n", szr, strerror( errno), errno);
-     return( 1);  }
-   bdone += szr;  }
- return( 0); }
-
 // save 
 int isp_setb( const char *_fname, const off_t _off, const char *_sname) {
  if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
@@ -314,17 +294,16 @@ int isp_exts( const char *_fname) {
  FILE *Ifp = ispimg_R_hdr( _fname, "rb", HDR);
  if ( !Ifp) return( 1);
  fclose( Ifp);
- int ret = 0;
  FILE *Ofp;
  char buf[ sizeof( HDR.init_script)];
  sprintf( buf, TMP_PFX"h.script.raw");
  if ( !( Ofp = fopen( buf, "wb"))) {
    printf( "ERR: can't create file %s: %s(%d)\n", buf, strerror(errno), errno);
-   return( 1);  }
+   fclose( Ifp);  return( 1);  }
  memset( buf, 0, sizeof( buf));
  if ( fwrite( HDR.init_script, sizeof( buf), 1, Ofp) != 1) {
    printf( "ERR: write %ld bytes failed: %s(%d)\n", sizeof( buf), strerror( errno), errno);
-   ret = 1;  }
+   fclose( Ifp);  fclose( Ofp);  return( 1);  }
  fclose( Ofp);
  if ( dbg) printf( "dbg0: Trying to extract clear text\n");
  isp_hdr_script_t xxx0;
@@ -338,6 +317,7 @@ int isp_exts( const char *_fname) {
  if ( !( Ofp = fopen( buf, "wb"))) {
    printf( "ERR: can't create file %s: %s(%d)\n", buf, strerror(errno), errno);
    return( 1);  }
+ int ret = 0;
  if ( fwrite( HDR.init_script + h_off, 1, xxx0.l, Ofp) != xxx0.l) {
    printf( "ERR: write %ld bytes failed: %s(%d)\n", sizeof( buf), strerror( errno), errno);
    ret = 1;  }
@@ -345,14 +325,6 @@ int isp_exts( const char *_fname) {
  if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
  return( ret);  }
 
-isp_part_t *find_part( isp_hdr_t &_hdr, const char *_pname, uint8_t &_idx) {
- isp_part_t *P = NULL;
- for ( int i = 0; i < NUM_OF_PARTITION; i++) {
-   if ( i > 0 && _hdr.partition_info[ i].file_offset < 1) continue;
-   if ( strcmp( _pname, ( const char *)_hdr.partition_info[ i].file_name) != 0) continue;
-   P = &( _hdr.partition_info[ i]);  _idx = i;  break;  }
- return( P);  }
- 
 // wipe partition from the image
 int isp_wipp( const char *_fname, const char *_pname) {
  if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
@@ -527,58 +499,3 @@ int isp_list( const char *_fname) {
  }
  if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
  return( 0);  }
-
-// _m == "rb", ...
-FILE *ispimg_R_hdr( const char *_fname, const char *_m, isp_hdr_t &_HDR) {
- FILE *Ifp;
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
- if ( !( Ifp = fopen( _fname, _m))) {
-   printf( "ERR: %s img '%s': %s(%d)\n", __FUNCTION__, _fname, strerror( errno), errno);
-   return( NULL);  }
- long off_hdr = OFF_HDR;
- if ( _pos( Ifp, off_hdr) != 0) {
-   printf( "ERR: HDR of '%s' can't pos at 0x%lX\n", _fname, off_hdr);
-   fclose( Ifp);  return( NULL);  }
- if ( dbg) printf( "dbg0: HDR reading %ld bytes at 0x%lX\n", sizeof( _HDR), off_hdr);
- if ( fread( &_HDR, sizeof( _HDR), 1, Ifp) != 1) {
-   printf( "ERR: HDR of '%s' reading 0x%lX\n", _fname, off_hdr);
-   fclose( Ifp);  return( NULL);  }
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
- return( Ifp);  }
-
-// write header
-int ispimg_W_hdr( FILE *_fp, isp_hdr_t &_HDR) {
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
- long off_hdr = OFF_HDR;
- if ( _pos( _fp, off_hdr) != 0) {
-   printf( "ERR: HDR can't pos at 0x%lX\n", off_hdr);
-   return( -1);  }
- if ( dbg) printf( "dbg0: HDR writing %ld bytes at 0x%lX\n", sizeof( _HDR), off_hdr);
- if ( fwrite( &_HDR, sizeof( _HDR), 1, _fp) != 1) {
-   printf( "ERR: HDR writing at 0x%lX\n", off_hdr);
-   return( -1);  }
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
- return( 0);  }
-
-int _pos( FILE *_F, off_t _p) {
- if ( fseek( _F, _p, SEEK_SET) != 0) return( 1);
- long off_cur = ftell( _F);
- if ( _p != off_cur) return( 1);
- return( 0);  }
-
-off_t _siz( FILE *_F) {
- struct stat fst;
- if ( fstat( fileno( _F), &fst) != 0) return( 0);
- return( fst.st_size);  }
-
-void init_script_hdr_parse( const unsigned char *_s, isp_hdr_script_t &_x) {
- memcpy( &_x, _s + FIT_HDR_OFF, sizeof( _x));
- _x.l = ntohl( _x.l);
- return;  }
-
-void p_sch( uint8_t *_x, uint32_t _s) {
- for ( uint32_t i = 0; i < _s; i++) printf( "%c", _x[ i]);
- return;  }
-void p_hex( uint8_t *_x, uint32_t _s) {
- for ( uint32_t i = 0; i < _s; i++) printf( "%01X", _x[ i]);
- return;  }
