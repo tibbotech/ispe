@@ -20,6 +20,11 @@ make
 ```
 0x01 means MTD_ONLY
 
+### Add new empty partition
+```
+./ispe ./ISPBOOOT.BIN -vvv addp "rootfs"
+```
+
 ### Extract script
 ```
 ./ispe ./ISPBOOOT.BIN -vvv exts

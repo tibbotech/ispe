@@ -27,6 +27,7 @@ int isp_list( const char *_fname);
 int isp_crea( const char *_fname);
 int isp_exts( const char *_fname);
 int isp_extp( const char *_fname, const char *_pname);
+int isp_addp( const char *_fname, const char *_pname);
 int isp_extb( const char *_fname, const off_t _off, const size_t _len);
 int isp_delp( const char *_fname, const char *_pname);
 int isp_wipp( const char *_fname, const char *_pname);
@@ -45,6 +46,7 @@ int main( int argc, char *argv[]) {
    printf( "\texts - extract header script\n");
    printf( "\tflag <0xXX> - set image header flag\n");
    printf( "\textp <name> - extract partition\n");
+   printf( "\taddp <name> - create new partition\n");
    printf( "\textb <0xXX> <dlen> - extract <dlen> (dec) bytes at XX offset\n");
    printf( "\tsets <file> - update header script from script image file\n");
    printf( "\tsetb <0xXX> <name> - save raw binary file <name> at <0xXX> offset\n");
@@ -69,7 +71,8 @@ int main( int argc, char *argv[]) {
    arg0 = argv[ aoff + 1];
  }
  if ( strcmp( cmd, "extp") == 0 || strcmp( cmd, "delp") == 0 ||
-      strcmp( cmd, "wipp") == 0 || strcmp( cmd, "flag") == 0
+      strcmp( cmd, "wipp") == 0 || strcmp( cmd, "flag") == 0 ||
+      strcmp( cmd, "addp") == 0
     ) {
    if ( aoff + 1 >= argc) {
      printf( "ERR: 1 parameter is reqired. See help\n");
@@ -95,6 +98,7 @@ int main( int argc, char *argv[]) {
  if ( strcmp( cmd, "crea") == 0) ret = isp_crea( Iname);
  if ( strcmp( cmd, "flag") == 0) ret = isp_flag( Iname, strtol( arg0, NULL, 16));
  if ( strcmp( cmd, "exts") == 0) ret = isp_exts( Iname);
+ if ( strcmp( cmd, "addp") == 0) ret = isp_addp( Iname, arg0);
  if ( strcmp( cmd, "extp") == 0) ret = isp_extp( Iname, arg0);
  if ( strcmp( cmd, "extb") == 0) ret = isp_extb( Iname, strtol( arg0, NULL, 16), atol( arg1));
  if ( strcmp( cmd, "sets") == 0) ret = isp_sets( Iname, arg0);
@@ -125,6 +129,31 @@ int isp_flag( const char *_fname, const off_t _off) {
  FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
  if ( !Ifp) return( 1);
  HDR.flags = _off;
+ int ret = ispimg_W_hdr( Ifp, HDR);
+ fclose( Ifp);
+ if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ return( ret);  }
+
+// add new partition
+int isp_addp( const char *_fname, const char *_pname) {
+ if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ isp_hdr_t HDR;
+ FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
+ if ( !Ifp) return( 1);
+ // find first empty partition
+ off_t last_off = OFF_HDR + sizeof( HDR);
+ isp_part_t *P = NULL, *Pp = NULL;
+ for ( int i = 0; i < NUM_OF_PARTITION; i++) {
+   Pp = &( HDR.partition_info[ i]);
+   if ( Pp->file_offset > 0) {
+     if ( Pp->file_size > 0) last_off = ( Pp->file_offset + Pp->file_size);
+     continue;  }
+   P = Pp;  break;  }
+ if ( !P) {
+   printf( "ERR: no free partitions?!\n");
+   fclose( Ifp);  return( 1);  }
+ strcpy( ( char *)P->file_name, _pname);
+ P->file_offset = last_off;
  int ret = ispimg_W_hdr( Ifp, HDR);
  fclose( Ifp);
  if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
