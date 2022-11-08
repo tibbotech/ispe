@@ -42,6 +42,12 @@ mkimage -l ./isp.h.script.raw.tmp
 ```
 Extracts 16 bytes starting at 0x100 offset into 'isp.b.100.16' file
 
+### Set binary raw data
+```
+./ispe ./ISPBOOOT.bin -vvvv setb 0x100 ./isp.b.100.16
+```
+Saves the raw file contents from the file 'isp.b.100.16' to the image starting at 0x100 offset
+
 ### Remove the partition
 ```
 ./ispe ./ISPBOOOT.bin -vvvv delp rootfs
