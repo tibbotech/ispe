@@ -24,6 +24,7 @@ FILE *ispimg_R_hdr( const char *_fname, const char *_m, isp_hdr_t &_HDR);
 int ispimg_W_hdr( FILE *_fp, isp_hdr_t &_HDR);
 
 int isp_list( const char *_fname);
+int isp_crea( const char *_fname);
 int isp_exts( const char *_fname);
 int isp_extp( const char *_fname, const char *_pname);
 int isp_extb( const char *_fname, const off_t _off, const size_t _len);
@@ -31,6 +32,8 @@ int isp_delp( const char *_fname, const char *_pname);
 int isp_wipp( const char *_fname, const char *_pname);
 int isp_sets( const char *_fname, const char *_sname);
 int isp_setb( const char *_fname, const off_t _off, const char *_pname);
+// more commands
+int isp_flag( const char *_fname, const off_t _off);
 
 int main( int argc, char *argv[]) {
  if ( argc < 2 || ( argc > 1 && argv[ 1][ 0] == '-')) {
@@ -38,11 +41,13 @@ int main( int argc, char *argv[]) {
    printf( "\t[-v] verbose mode\n");
    printf( "\t<cmd> [params] one of the following:\n");
    printf( "\tlist - list partitions in the image\n");
+   printf( "\tcrea - create an empty image\n");
    printf( "\texts - extract header script\n");
+   printf( "\tflag <0xXX> - set image header flag\n");
    printf( "\textp <name> - extract partition\n");
-   printf( "\textb <hoff> <dlen> - extract <dlen> (dec) bytes at <hoff> (hex) offset\n");
+   printf( "\textb <0xXX> <dlen> - extract <dlen> (dec) bytes at XX offset\n");
    printf( "\tsets <file> - update header script from script image file\n");
-   printf( "\tsetb <hoff> <name> - save raw binary file <name> at <hoff> (hex) offset\n");
+   printf( "\tsetb <0xXX> <name> - save raw binary file <name> at <0xXX> offset\n");
    printf( "\tdelp <name> - delete partition from the image\n");
    printf( "\twipp <name> - wipe the partition keeping general info\n");
    return( 1);  }
@@ -64,16 +69,16 @@ int main( int argc, char *argv[]) {
    arg0 = argv[ aoff + 1];
  }
  if ( strcmp( cmd, "extp") == 0 || strcmp( cmd, "delp") == 0 ||
-      strcmp( cmd, "wipp") == 0
+      strcmp( cmd, "wipp") == 0 || strcmp( cmd, "flag") == 0
     ) {
    if ( aoff + 1 >= argc) {
-     printf( "ERR: partition name is reqired. See help\n");
+     printf( "ERR: 1 parameter is reqired. See help\n");
      return( 1);  }
    arg0 = argv[ aoff + 1];
  }
  if ( strcmp( cmd, "extb") == 0 || strcmp( cmd, "setb") == 0) {
    if ( aoff + 2 >= argc) {
-     printf( "ERR: parameters are reqired. See help\n");
+     printf( "ERR: 2 parameters are reqired. See help\n");
      return( 1);  }
    arg0 = argv[ aoff + 1];
    arg1 = argv[ aoff + 2];
@@ -87,6 +92,8 @@ int main( int argc, char *argv[]) {
    return( 1);  }
  int ret = 0;
  if ( strcmp( cmd, "list") == 0) ret = isp_list( Iname);
+ if ( strcmp( cmd, "crea") == 0) ret = isp_crea( Iname);
+ if ( strcmp( cmd, "flag") == 0) ret = isp_flag( Iname, strtol( arg0, NULL, 16));
  if ( strcmp( cmd, "exts") == 0) ret = isp_exts( Iname);
  if ( strcmp( cmd, "extp") == 0) ret = isp_extp( Iname, arg0);
  if ( strcmp( cmd, "extb") == 0) ret = isp_extb( Iname, strtol( arg0, NULL, 16), atol( arg1));
@@ -94,6 +101,33 @@ int main( int argc, char *argv[]) {
  if ( strcmp( cmd, "setb") == 0) ret = isp_setb( Iname, strtol( arg0, NULL, 16), arg1);
  if ( strcmp( cmd, "delp") == 0) ret = isp_delp( Iname, arg0);
  if ( strcmp( cmd, "wipp") == 0) ret = isp_wipp( Iname, arg0);
+ return( ret);  }
+
+// create an empty image
+int isp_crea( const char *_fname) {
+ if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ isp_hdr_t HDR;
+ FILE *Ifp = fopen( _fname, "w+b");
+ if ( !Ifp) {
+   printf( "ERR: can't create file %s: %s(%d)\n", _fname, strerror(errno), errno);
+   return( 1);  }
+ memset( &HDR, 0, sizeof( HDR));
+ strcpy( ( char *)( HDR.signature), "Pentagram_ISP_image");
+ int ret = ispimg_W_hdr( Ifp, HDR);
+ fclose( Ifp);
+ if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ return( ret);  }
+
+// set header flag
+int isp_flag( const char *_fname, const off_t _off) {
+ if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ isp_hdr_t HDR;
+ FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
+ if ( !Ifp) return( 1);
+ HDR.flags = _off;
+ int ret = ispimg_W_hdr( Ifp, HDR);
+ fclose( Ifp);
+ if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
  return( ret);  }
 
 // set script for the image
@@ -260,10 +294,11 @@ int isp_wipp( const char *_fname, const char *_pname) {
    printf( "ERR: partition '%s' not found\n", _pname);
    fclose( Ifp);  return( 1);  }
  if ( dbg) printf( "dbg0: Found '%s'[%d] partition at 0x%X\n", _pname, pIdx, P->file_offset);
- // wipe info
+ // wipe size and md5
  memset( P->md5sum, 0, sizeof( P->md5sum));
  P->file_size = 0;
  if ( ispimg_W_hdr( Ifp, HDR) != 0) {  fclose( Ifp);  return( 1);  }
+ // FIXME: wipe data
  fclose( Ifp);
  if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
  return( 0);  }
@@ -385,7 +420,7 @@ int isp_list( const char *_fname) {
  FILE *Ifp = ispimg_R_hdr( _fname, "rb", HDR);
  off_t Isize = _siz( Ifp);
  fclose( Ifp);
- printf( "HEADER:\n");
+ printf( "HEADER 0x%X :\n", OFF_HDR);
  printf( "\tsign (str,%ld/%ld): %s\n", sizeof( HDR.signature), sizeof( HDR.signature), HDR.signature);
  printf( "\tsign (hex,%ld/%ld): ", sizeof( HDR.signature), sizeof( HDR.signature));  p_hex( HDR.signature, sizeof( HDR.signature));  printf( "\n");
  printf( "\tinit script (str,16/%ld): ", sizeof( HDR.init_script) - FIT_HDR_OFF - sizeof( isp_hdr_script_t));

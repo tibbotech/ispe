@@ -10,6 +10,15 @@ make
 ```
 ./ispe ./ISPBOOOT.BIN list
 ```
+### Create new empty image
+```
+./ispe ./ISPBOOOT.BIN -vvv crea
+```
+### Set image header flag
+```
+./ispe ./ISPBOOOT.BIN -vvv flag 0x01
+```
+0x01 means MTD_ONLY
 
 ### Extract script
 ```
