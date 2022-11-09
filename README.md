@@ -1,5 +1,38 @@
 
-**mkimage** tool (u-boot-tools) is required for some operations
+# ISPEditor
+
+ISPBOOOT.BIN file editor good for scripting and automation.
+
+```
+Usage: ./ispe <img> [-v] <cmd> [cmdparams]
+        [-v] verbose mode (-vvv.. increase verbosity)
+        <cmd> [params] one of the following:
+        list - list partitions in the image
+        crea - create an empty image
+        extb <0xXX> <dlen> - extract <dlen> (dec) bytes at XX offset
+        setb <0xXX> <name> - save raw binary file <name> at <0xXX> offset
+        head exts - extract header script
+        head flag <0xXX> - set image header flag
+        head sets <file> - update header script from script image file
+        part <name> dele - delete the partition from the image
+        part <name> addp - create new partition
+        part <name> extp - extract partition to ...
+        part <name> wipe - wipe the partition keeping general info
+        part <name> file <file> - load data for the partition from the raw file
+        part <name> flag <0xXX> - set flag = 0xXX to partition <name>
+        part <name> size <0xXX> - set size = 0xXX to partition <name>
+        part <name> nand <0xXX> - set NAND offset = 0xXX to partition <name>
+        part <name> emmc <0xXX> - set EMMC start block off = 0xXX
+
+```
+EXIT_CODE == 0 on success:
+```
+./ispe ./myimage ...
+if [ $? -ne 0 ]; then  echo "Failed";
+else  echo "OP is done";  fi;
+```
+
+Please, see test0.sh for more examples.
 
 ## Building
 ```
@@ -13,7 +46,7 @@ make
 
 - mkimage (u-boot-tools package)
 
-## Use Examples
+## Examples
 
 #### Show ISPBOOOT.BIN data
 ```
@@ -25,23 +58,23 @@ make
 ```
 #### Set image header flag
 ```
-./ispe ./ISPBOOOT.BIN -vvv flag 0x01
+./ispe ./ISPBOOOT.BIN head flag 0x01
 ```
 0x01 means MTD_ONLY
 
 #### Add new empty partition
 ```
-./ispe ./ISPBOOOT.BIN -vvv addp "dtb"
+./ispe ./ISPBOOOT.BIN part "part0" addp
 ```
 
 #### Load data to the partition
 ```
-./ispe ./ISPBOOOT.BIN -vvv part "dtb" file ./isp.p.dtb
+./ispe ./ISPBOOOT.BIN part "dtb" file ./isp.p.dtb
 ```
 
 #### Extract script
 ```
-./ispe ./ISPBOOOT.BIN -vvv exts
+./ispe ./ISPBOOOT.BIN head exts
 ```
 sript will be dumped into 
 isp.h.script.raw - raw script buffer dump (need to cut last \0 to operate)
@@ -61,31 +94,18 @@ mkimage -l ./isp.h.script.raw.tmp
 #### Update the header script from script text file:
 ```
 ./script_enc.sh ./myscript.txt ./myscript.raw
-./ispe ./ISPBOOOT.BIN -vvv sets ./mysript.raw
+./ispe ./ISPBOOOT.BIN head sets ./mysript.raw
 ```
 
 #### Extract binary raw data
 ```
-./ispe ./ISPBOOOT.bin -vvvv extb 0x100 16
+./ispe ./ISPBOOOT.bin extb 0x100 16
 ```
 Extracts 16 bytes starting at 0x100 offset into 'isp.b.100.16' file
 
 #### Set binary raw data
 ```
-./ispe ./ISPBOOOT.bin -vvvv setb 0x100 ./isp.b.100.16
+./ispe ./ISPBOOOT.bin setb 0x100 ./isp.b.100.16
 ```
 Saves the raw file contents from the file 'isp.b.100.16' to the image starting at 0x100 offset.
 IMG Header is protected.
-
-#### Remove the partition
-```
-./ispe ./ISPBOOOT.bin -vvvv delp rootfs
-```
-
-#### Extract all partitions:
-```
-./ispe ./ISPBOOOT.BIN list | grep "filename" | \
-while read x0 pname; do \
-  ./ispe ./ISPBOOOT.BIN extp ${pname}; \
-done;
-```
