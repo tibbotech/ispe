@@ -10,7 +10,8 @@
 #include <openssl/md5.h>    // openssl/md5 funcs
 #include "isp.h"
 
-int RW( FILE *_R, const off_t _Roff, FILE *_W, const off_t _Woff, const size_t _len) {
+int RW( FILE *_R, const off_t _Roff, FILE *_W, const off_t _Woff, const off_t _len) {
+ if ( _len == 0) return( 0);
  // if files are different - able to pos once
  if ( _R != _W) {
    if ( dbg && _Roff) printf( "dbg0: R seek to 0x%lx\n", _Roff);
@@ -22,27 +23,31 @@ int RW( FILE *_R, const off_t _Roff, FILE *_W, const off_t _Woff, const size_t _
      printf( "ERR: seek W at pos 0x%lX: %s(%d)\n", _Woff, strerror( errno), errno);
      return( 1);  }
  }
- size_t bdone = 0;
+ off_t bdone = 0, R0 = _Roff, W0 = _Woff;
  char buf[ 2048];
  size_t sz = sizeof( buf), szr = 0; 
- while ( bdone < _len) {
-   if ( sz > ( _len - bdone)) sz = ( _len - bdone);
-   if ( dbg > 1) printf( "dbg1: reading %ld bytes\n", sz);
-   if ( _R == _W && _pos( _R, _Roff + bdone) != 0) { 
-     printf( "ERR: seek R at pos 0x%lX\n", _Roff + bdone);  return( 1);  }
+ if ( _len < 0) {  R0 -= sz;  W0 -= sz;  }
+ while ( 1) {
+   if ( _len > 0 && bdone >= _len) break;
+   if ( _len < 0 && bdone <= _len) break;
+   if ( _len > 0 && ( off_t)sz > ( _len - bdone)) sz = ( _len - bdone);
+   if ( _len < 0 && ( off_t)sz > ( bdone - _len)) sz = ( bdone - _len);
+   if ( dbg > 2) printf( "dbg2: reading %ld bytes at 0x%lX\n", sz, R0 + bdone);
+   if ( _R == _W && _pos( _R, R0 + bdone) != 0) { 
+     printf( "ERR: seek R at pos 0x%lX\n", R0 + bdone);  return( 1);  }
    if ( ( szr = fread( buf, 1, sz, _R)) < 0) {
      printf( "ERR: read %ld bytes failed: %s(%d)\n", sz, strerror( errno), errno);
      return( 1);  }
    if ( szr < 1) {
      if ( dbg > 1) printf( "dbg1: R eof\n");
      break;  }
-   if ( dbg > 1) printf( "dbg1: writing %ld bytes\n", szr);
-   if ( _R == _W && _pos( _W, _Woff + bdone) != 0) { 
-     printf( "ERR: seek W at pos 0x%lX\n", _Woff + bdone);  return( 1);  }
+   if ( dbg > 2) printf( "dbg2: writing %ld bytes at 0x%lX\n", szr, W0 + bdone);
+   if ( _R == _W && _pos( _W, W0 + bdone) != 0) { 
+     printf( "ERR: seek W at pos 0x%lX\n", W0 + bdone);  return( 1);  }
    if ( fwrite( buf, szr, 1, _W) != 1) {
      printf( "ERR: write %ld bytes failed: %s(%d)\n", szr, strerror( errno), errno);
      return( 1);  }
-   bdone += szr;  }
+   bdone += ( _len > 0 ? szr : -szr);  }
  return( 0); }
 
 isp_part_t *find_part( isp_hdr_t &_hdr, const char *_pname, uint8_t &_idx) {

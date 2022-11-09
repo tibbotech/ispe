@@ -1,7 +1,7 @@
 #ifndef ISP_H
 #define ISP_H
 
-// FILE_SIZE_IMAGE_XBOOT0 + FILE_SIZE_IMAGE_UBOOT0
+// for sp7021: FILE_SIZE_IMAGE_XBOOT0 + FILE_SIZE_IMAGE_UBOOT0
 #define OFF_HDR 0x100000
 
 #define SIZE_FILE_NAME 32
@@ -41,24 +41,6 @@ struct file_header_s {
 } __attribute__((packed));
 typedef file_header_s isp_hdr_t;
 
-// used internally
-struct isp_info_s {
-    struct file_header_s file_header;
-
-    uint8_t full_file_name[NUM_OF_PARTITION][SIZE_FULL_FILE_NAME];
-    uint8_t full_file_name_xboot0[SIZE_FULL_FILE_NAME];
-    uint8_t full_file_name_uboot0[SIZE_FULL_FILE_NAME];
-    uint8_t file_name_pack_image[SIZE_FULL_FILE_NAME];
-    // u08 base_file_name_pack_image[SIZE_FILE_NAME];
-    int nand_block_size;
-    int idx_partition;
-    uint32_t flags;
-    FILE *fd;
-    char file_disk_image[32];
-    int idx_gpt_header_primary;
-    uint8_t *key_ptr;
-};
-
 // https://formats.kaitai.io/uimage/
 #define FIT_HDR_OFF 64
 struct isp_hdr_script {
@@ -77,7 +59,7 @@ void init_script_hdr_parse( const unsigned char *_hdr, isp_hdr_script_t &_x);
 FILE *ispimg_R_hdr( const char *_fname, const char *_m, isp_hdr_t &_HDR);
 int ispimg_W_hdr( FILE *_fp, isp_hdr_t &_HDR);
 isp_part_t *find_part( isp_hdr_t &_hdr, const char *_pname, uint8_t &_idx);
-int RW( FILE *_R, const off_t _Roff, FILE *_W, const off_t _Woff, const size_t _len);
+int RW( FILE *_R, const off_t _Roff, FILE *_W, const off_t _Woff, const off_t _len);
 
 int md5sum( FILE *_F, char *_s);
 
