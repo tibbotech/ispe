@@ -26,6 +26,9 @@ int isp_part_dele( const char *_fname, const char *_pname);
 int isp_part_wipe( const char *_fname, const char *_pname);
 int isp_part_file( const char *_fname, const char *_pname, const char *_file);
 int isp_part_flag( const char *_fname, const char *_pname, const off_t _val);
+int isp_part_size( const char *_fname, const char *_pname, const off_t _val);
+int isp_part_nand( const char *_fname, const char *_pname, const off_t _val);
+int isp_part_emmc( const char *_fname, const char *_pname, const off_t _val);
 
 int main( int argc, char *argv[]) {
  if ( argc < 2 || ( argc > 1 && argv[ 1][ 0] == '-')) {
@@ -45,6 +48,9 @@ int main( int argc, char *argv[]) {
    printf( "\tpart <name> wipe - wipe the partition keeping general info\n");
    printf( "\tpart <name> file <file> - load data for the partition from the raw file\n");
    printf( "\tpart <name> flag <0xXX> - set flag = 0xXX to partition <name>\n");
+   printf( "\tpart <name> size <0xXX> - set size = 0xXX to partition <name>\n");
+   printf( "\tpart <name> nand <0xXX> - set NAND offset = 0xXX to partition <name>\n");
+   printf( "\tpart <name> emmc <0xXX> - set EMMC start block = 0xXX to partition <name>\n");
    return( 1);  }
  uint8_t aoff = 2, i = 0;
  if ( argc > aoff) while ( argv[ aoff][ ++i] == 'v') dbg++;
@@ -100,6 +106,9 @@ int main( int argc, char *argv[]) {
    if ( !arg2) {  printf( "ERR: 1 more arg required\n");  break;  }
    if ( strcmp( arg1, "file") == 0) {  ret = isp_part_file( Iname, arg0, arg2);  break;  }
    if ( strcmp( arg1, "flag") == 0) {  ret = isp_part_flag( Iname, arg0, strtol( arg2, NULL, 16));  break;  }
+   if ( strcmp( arg1, "size") == 0) {  ret = isp_part_size( Iname, arg0, strtol( arg2, NULL, 16));  break;  }
+   if ( strcmp( arg1, "nand") == 0) {  ret = isp_part_nand( Iname, arg0, strtol( arg2, NULL, 16));  break;  }
+   if ( strcmp( arg1, "emmc") == 0) {  ret = isp_part_emmc( Iname, arg0, strtol( arg2, NULL, 16));  break;  }
    break;  }
  if ( ret == -100) {
    printf( "ERR: Unknown cmd or wrong parameters, run %s for help\n", argv[ 0]);
@@ -222,6 +231,57 @@ int isp_part_flag( const char *_fname, const char *_pname, const off_t _val) {
    printf( "ERR: partition '%s' not found\n", _pname);
    fclose( Ifp);  return( 1);  }
  P->flags = _val;
+ int ret = ispimg_W_hdr( Ifp, HDR);
+ fclose( Ifp);
+ if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ return( ret);  }
+
+// set size for the partition
+int isp_part_size( const char *_fname, const char *_pname, const off_t _val) {
+ if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ isp_hdr_t HDR;
+ FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
+ if ( !Ifp) return( 1);
+ uint8_t pIdx;
+ isp_part_t *P = find_part( HDR, _pname, pIdx);
+ if ( !P) {
+   printf( "ERR: partition '%s' not found\n", _pname);
+   fclose( Ifp);  return( 1);  }
+ P->partition_size = _val;
+ int ret = ispimg_W_hdr( Ifp, HDR);
+ fclose( Ifp);
+ if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ return( ret);  }
+
+// set nand OFF for the partition
+int isp_part_nand( const char *_fname, const char *_pname, const off_t _val) {
+ if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ isp_hdr_t HDR;
+ FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
+ if ( !Ifp) return( 1);
+ uint8_t pIdx;
+ isp_part_t *P = find_part( HDR, _pname, pIdx);
+ if ( !P) {
+   printf( "ERR: partition '%s' not found\n", _pname);
+   fclose( Ifp);  return( 1);  }
+ P->partition_start_addr = _val;
+ int ret = ispimg_W_hdr( Ifp, HDR);
+ fclose( Ifp);
+ if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ return( ret);  }
+
+// set emmc OFF for the partition
+int isp_part_emmc( const char *_fname, const char *_pname, const off_t _val) {
+ if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ isp_hdr_t HDR;
+ FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
+ if ( !Ifp) return( 1);
+ uint8_t pIdx;
+ isp_part_t *P = find_part( HDR, _pname, pIdx);
+ if ( !P) {
+   printf( "ERR: partition '%s' not found\n", _pname);
+   fclose( Ifp);  return( 1);  }
+ P->emmc_partition_start = _val;
  int ret = ispimg_W_hdr( Ifp, HDR);
  fclose( Ifp);
  if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
@@ -504,7 +564,7 @@ int isp_list( const char *_fname) {
    printf( "\tpart start addr: 0x%X\n", P->partition_start_addr);
    printf( "\tpart size: %ld\n", P->partition_size);
    printf( "\tflags: 0x%X\n", P->flags);
-   printf( "\temmc part start block: %d\n", P->emmc_partition_start);
+   printf( "\temmc part start block: 0x%X\n", P->emmc_partition_start);
    if ( Isize < leop) {
      printf( "WRN: virtually ends at %ld (%ld bytes after)\n", leop, ( leop - Isize));
      printf( "WRN: image eof is at %ld\n", Isize);
