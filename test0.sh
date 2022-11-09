@@ -21,6 +21,15 @@ while read x0 pname; do \
   ./ispe ${f0pfx}${f0} part ${pname} extp; \
 done;
 
+echo "Extracting pre-header area (xboot0,64K) from ${f0pfx}${f0} ..."
+./ispe ${f0pfx}${f0} extb 0x00 $((64*1024))
+
+echo "Extracting pre-header area (uboot0,960K) from ${f0pfx}${f0} ..."
+./ispe ${f0pfx}${f0} extb 0x10000 $((960*1024))
+
+echo "Extracting script from ${f0pfx}${f0} ..."
+./ispe ${f0pfx}${f0} head exts
+
 f1pfx="./"
 f1="./ISPBOOOT.bin"
 

@@ -33,7 +33,7 @@ int isp_part_emmc( const char *_fname, const char *_pname, const off_t _val);
 int main( int argc, char *argv[]) {
  if ( argc < 2 || ( argc > 1 && argv[ 1][ 0] == '-')) {
    printf( "Usage: %s <img> [-v] <cmd> [cmdparams]\n", argv[ 0]);
-   printf( "\t[-v] verbose mode\n");
+   printf( "\t[-v] verbose mode (-vvv.. increase verbosity)\n");
    printf( "\t<cmd> [params] one of the following:\n");
    printf( "\tlist - list partitions in the image\n");
    printf( "\tcrea - create an empty image\n");
@@ -50,7 +50,7 @@ int main( int argc, char *argv[]) {
    printf( "\tpart <name> flag <0xXX> - set flag = 0xXX to partition <name>\n");
    printf( "\tpart <name> size <0xXX> - set size = 0xXX to partition <name>\n");
    printf( "\tpart <name> nand <0xXX> - set NAND offset = 0xXX to partition <name>\n");
-   printf( "\tpart <name> emmc <0xXX> - set EMMC start block = 0xXX to partition <name>\n");
+   printf( "\tpart <name> emmc <0xXX> - set EMMC start block off = 0xXX\n");
    return( 1);  }
  uint8_t aoff = 2, i = 0;
  if ( argc > aoff) while ( argv[ aoff][ ++i] == 'v') dbg++;
@@ -65,7 +65,7 @@ int main( int argc, char *argv[]) {
  char *arg0 = NULL, *arg1 = NULL, *arg2 = NULL;
  if ( strcmp( cmd, "head") == 0) {
    aoff++;
-   if ( argc - aoff < 2) {
+   if ( argc - aoff < 1) {
      printf( "ERR: At least 1 parameters is reqired. See help\n");
      return( 1);  }
  }
