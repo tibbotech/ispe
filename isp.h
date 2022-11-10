@@ -1,6 +1,8 @@
 #ifndef ISP_H
 #define ISP_H
 
+#include <inttypes.h>
+
 // for sp7021: FILE_SIZE_IMAGE_XBOOT0 + FILE_SIZE_IMAGE_UBOOT0
 #define OFF_HDR 0x100000
 
@@ -13,6 +15,9 @@
 #define SIZE_INIT_SCRIPT 2048
 // why this value?
 #define NUM_OF_PARTITION 111
+
+//#define DBG(L,fmt, ...) if ( dbg > (L)) printf( "dbg"#L fmt"\n", __VA_ARGS__);
+#define DBG(L,fmt,args...) if ( dbg > (L)) printf( "dbg"#L ": " fmt"\n", ##args);
 
 struct partition_info_s {
     uint8_t  file_name[SIZE_FILE_NAME];  // file name of source (basename only)

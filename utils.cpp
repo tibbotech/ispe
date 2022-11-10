@@ -14,11 +14,11 @@ int RW( FILE *_R, const off_t _Roff, FILE *_W, const off_t _Woff, const off_t _l
  if ( _len == 0) return( 0);
  // if files are different - able to pos once
  if ( _R != _W) {
-   if ( dbg && _Roff) printf( "dbg0: R seek to 0x%lx\n", _Roff);
+   if ( _Roff) DBG(1, "R seek to 0x%lx", _Roff);
    if ( _Roff && _pos( _R, _Roff) != 0) {
      printf( "ERR: seek R at pos 0x%lX: %s(%d)\n", _Roff, strerror( errno), errno);
      return( 1);  }
-   if ( dbg && _Woff) printf( "dbg0: W seek to 0x%lx\n", _Woff);
+   if ( _Woff) DBG(1, "W seek to 0x%lx", _Woff);
    if ( _Woff && _pos( _W, _Woff) != 0) {
      printf( "ERR: seek W at pos 0x%lX: %s(%d)\n", _Woff, strerror( errno), errno);
      return( 1);  }
@@ -32,16 +32,16 @@ int RW( FILE *_R, const off_t _Roff, FILE *_W, const off_t _Woff, const off_t _l
    if ( _len < 0 && bdone <= _len) break;
    if ( _len > 0 && ( off_t)sz > ( _len - bdone)) sz = ( _len - bdone);
    if ( _len < 0 && ( off_t)sz > ( bdone - _len)) sz = ( bdone - _len);
-   if ( dbg > 2) printf( "dbg2: reading %ld bytes at 0x%lX\n", sz, R0 + bdone);
+   DBG(4, "reading %ld bytes at 0x%lX", sz, R0 + bdone);
    if ( _R == _W && _pos( _R, R0 + bdone) != 0) { 
      printf( "ERR: seek R at pos 0x%lX\n", R0 + bdone);  return( 1);  }
    if ( ( szr = fread( buf, 1, sz, _R)) < 0) {
      printf( "ERR: read %ld bytes failed: %s(%d)\n", sz, strerror( errno), errno);
      return( 1);  }
    if ( szr < 1) {
-     if ( dbg > 1) printf( "dbg1: R eof\n");
+     DBG(4, "R eof");
      break;  }
-   if ( dbg > 2) printf( "dbg2: writing %ld bytes at 0x%lX\n", szr, W0 + bdone);
+   DBG(4, "writing %ld bytes at 0x%lX", szr, W0 + bdone);
    if ( _R == _W && _pos( _W, W0 + bdone) != 0) { 
      printf( "ERR: seek W at pos 0x%lX\n", W0 + bdone);  return( 1);  }
    if ( fwrite( buf, szr, 1, _W) != 1) {
@@ -61,7 +61,7 @@ isp_part_t *find_part( isp_hdr_t &_hdr, const char *_pname, uint8_t &_idx) {
 // _m == "rb", ...
 FILE *ispimg_R_hdr( const char *_fname, const char *_m, isp_hdr_t &_HDR) {
  FILE *Ifp;
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ DBG(3, "%s()", __FUNCTION__);
  if ( !( Ifp = fopen( _fname, _m))) {
    printf( "ERR: %s img '%s': %s(%d)\n", __FUNCTION__, _fname, strerror( errno), errno);
    return( NULL);  }
@@ -69,25 +69,25 @@ FILE *ispimg_R_hdr( const char *_fname, const char *_m, isp_hdr_t &_HDR) {
  if ( _pos( Ifp, off_hdr) != 0) {
    printf( "ERR: HDR of '%s' can't pos at 0x%lX\n", _fname, off_hdr);
    fclose( Ifp);  return( NULL);  }
- if ( dbg) printf( "dbg0: HDR reading %ld bytes at 0x%lX\n", sizeof( _HDR), off_hdr);
+ DBG(1, "HDR reading %ld bytes at 0x%lX", sizeof( _HDR), off_hdr);
  if ( fread( &_HDR, sizeof( _HDR), 1, Ifp) != 1) {
-   printf( "ERR: HDR of '%s' reading 0x%lX\n", _fname, off_hdr);
+   printf( "ERR: HDR of '%s' reading at 0x%lX\n", _fname, off_hdr);
    fclose( Ifp);  return( NULL);  }
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ DBG(3, "%s() /", __FUNCTION__);
  return( Ifp);  }
 
 // write header
 int ispimg_W_hdr( FILE *_fp, isp_hdr_t &_HDR) {
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ DBG(3, "%s()", __FUNCTION__);
  long off_hdr = OFF_HDR;
  if ( _pos( _fp, off_hdr) != 0) {
    printf( "ERR: HDR can't pos at 0x%lX\n", off_hdr);
    return( -1);  }
- if ( dbg) printf( "dbg0: HDR writing %ld bytes at 0x%lX\n", sizeof( _HDR), off_hdr);
+ DBG(1, "HDR writing %ld bytes at 0x%lX", sizeof( _HDR), off_hdr);
  if ( fwrite( &_HDR, sizeof( _HDR), 1, _fp) != 1) {
    printf( "ERR: HDR writing at 0x%lX\n", off_hdr);
    return( -1);  }
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ DBG(3, "%s() /", __FUNCTION__);
  return( 0);  }
 
 int _pos( FILE *_F, off_t _p) {
@@ -116,6 +116,7 @@ void p_hex( uint8_t *_x, uint32_t _s) {
 int md5sum( FILE *_F, char *_s) {
  MD5_CTX c;
  isp_part_t P;
+ DBG(1, "%s()", __FUNCTION__);
  if ( sizeof( P.md5sum) < MD5_DIGEST_LENGTH) {
    printf( "ERR: %s() sizeof( P.md5sum)=%ld < MD5_DIGEST_LENGTH=%d\n", __FUNCTION__, sizeof( P.md5sum), MD5_DIGEST_LENGTH);
    return( 1);  }
@@ -136,4 +137,5 @@ int md5sum( FILE *_F, char *_s) {
  MD5_Final( out, &c);
  memset( _s, 0, sizeof( P.md5sum));
  for ( int i = 0; i < MD5_DIGEST_LENGTH; i++) sprintf( _s + i*2, "%02x", out[ i]);
+ DBG(1, "%s() /", __FUNCTION__);
  return( 0);  }

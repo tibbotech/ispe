@@ -13,6 +13,8 @@
 
 uint8_t dbg = 0;
 
+//#define DBG(L,fmt,args...) if ( dbg > (L)) printf( "dbg"#L fmt"\n", ##args);
+
 int isp_list( const char *_fname);
 int isp_crea( const char *_fname);
 int isp_extb( const char *_fname, const off_t _off, const size_t _len);
@@ -54,10 +56,10 @@ int main( int argc, char *argv[]) {
    return( 1);  }
  uint8_t aoff = 2, i = 0;
  if ( argc > aoff) while ( argv[ aoff][ ++i] == 'v') dbg++;
- if ( dbg) printf( "dbg0: Verbose mode%d\n", dbg);
+ DBG(1, "Verbose mode%d", dbg);
  if ( dbg) aoff++;
  char *Iname = argv[ 1];
- if ( dbg) printf( "dbg0: IMG: %s\n", Iname);
+ DBG(1, "IMG: %s", Iname);
  if ( argc <= aoff) {
    printf( "ERR: No cmd, run %s for help\n", argv[ 0]);
    return( 1);  }
@@ -83,7 +85,7 @@ int main( int argc, char *argv[]) {
  if ( !cmd) {
    printf( "ERR: Unknown cmd, run %s for help\n", argv[ 0]);
    return( 1);  }
- if ( dbg) printf( "dbg0: CMD %s\n", cmd);
+ DBG(1, "CMD %s", cmd);
  if ( sizeof( isp_part_t) != SIZE_PARTITION_INFO_S) {
    printf( "ERR: sizeof(partition_info) != %d. Check your compiler\n", SIZE_PARTITION_INFO_S);
    return( 1);  }
@@ -117,7 +119,7 @@ int main( int argc, char *argv[]) {
 
 // create an empty image
 int isp_crea( const char *_fname) {
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ DBG(3, "%s()", __FUNCTION__);
  isp_hdr_t HDR;
  FILE *Ifp = fopen( _fname, "w+b");
  if ( !Ifp) {
@@ -127,24 +129,24 @@ int isp_crea( const char *_fname) {
  strcpy( ( char *)( HDR.signature), "Pentagram_ISP_image");
  int ret = ispimg_W_hdr( Ifp, HDR);
  fclose( Ifp);
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ DBG(3, "%s() /", __FUNCTION__);
  return( ret);  }
 
 // set header flag
 int isp_head_flag( const char *_fname, const off_t _val) {
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ DBG(3, "%s()", __FUNCTION__);
  isp_hdr_t HDR;
  FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
  if ( !Ifp) return( 1);
  HDR.flags = _val;
  int ret = ispimg_W_hdr( Ifp, HDR);
  fclose( Ifp);
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ DBG(3, "%s() /", __FUNCTION__);
  return( ret);  }
 
 // add new partition
 int isp_part_addp( const char *_fname, const char *_pname) {
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ DBG(3, "%s()", __FUNCTION__);
  isp_hdr_t HDR;
  FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
  if ( !Ifp) return( 1);
@@ -164,11 +166,11 @@ int isp_part_addp( const char *_fname, const char *_pname) {
  P->file_offset = last_off;
  int ret = ispimg_W_hdr( Ifp, HDR);
  fclose( Ifp);
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ DBG(3, "%s() /", __FUNCTION__);
  return( ret);  }
 
 int isp_part_file( const char *_fname, const char *_pname, const char *_file) {
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ DBG(3, "%s()", __FUNCTION__);
  isp_hdr_t HDR;
  FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
  if ( !Ifp) return( 1);
@@ -191,18 +193,18 @@ int isp_part_file( const char *_fname, const char *_pname, const char *_file) {
 
  isp_part_t *Pi = NULL;
  off_t move_at = 0;
- if ( dbg && add_len) printf( "dbg0: adding %ld bytes shift\n", add_len);
+ DBG(1, "shift to %ld bytes", add_len);
  for ( int i = pIdx + 1; add_len > 0 && i < NUM_OF_PARTITION; i++) {
    Pi = &( HDR.partition_info[ i]);
    if ( Pi->file_offset < 1) break;
    if ( move_at < 1) move_at = Pi->file_offset;
-   if ( dbg) printf( "dbg0: part '%s' off 0x%X --> 0x%lX\n", Pi->file_name, Pi->file_offset, Pi->file_offset + add_len);
+   DBG(1, "part '%s' off 0x%X --> 0x%lX", Pi->file_name, Pi->file_offset, Pi->file_offset + add_len);
    Pi->file_offset += add_len;  }
  // if next partition is found - move starting from its position
  off_t Isize = _siz( Ifp);
  int ret = 0;
  if ( move_at) {
-   if ( dbg) printf( "dbg0: --> %ld bytes at %lX for %ld\n", Isize - move_at, move_at, add_len);
+   DBG(1, "--> %ld bytes at %lX for %ld", Isize - move_at, move_at, add_len);
    ret = RW( Ifp, Isize, Ifp, Isize + add_len, -( Isize - move_at));
  }
  if ( ret != 0) {  fclose( Ifp);  fclose( Sfp);  return( ret);  }
@@ -210,18 +212,18 @@ int isp_part_file( const char *_fname, const char *_pname, const char *_file) {
  P->file_size = Ssize;
  md5sum( Sfp, ( char *)P->md5sum);
  if ( ispimg_W_hdr( Ifp, HDR) != 0) {  fclose( Ifp);  fclose( Sfp);  return( 1);  }
- if ( dbg) printf( "dbg0: writing the body...\n");
+ DBG(1, "writing the body...");
  // FIXME: zero the data inside
  _pos( Sfp, 0);
  ret = RW( Sfp, 0, Ifp, P->file_offset, Ssize);
  fclose( Sfp);
  fclose( Ifp);
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ DBG(3, "%s() /", __FUNCTION__);
  return( ret);  }
 
 // set flag for the partition
 int isp_part_flag( const char *_fname, const char *_pname, const off_t _val) {
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ DBG(3, "%s()", __FUNCTION__);
  isp_hdr_t HDR;
  FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
  if ( !Ifp) return( 1);
@@ -233,12 +235,12 @@ int isp_part_flag( const char *_fname, const char *_pname, const off_t _val) {
  P->flags = _val;
  int ret = ispimg_W_hdr( Ifp, HDR);
  fclose( Ifp);
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ DBG(3, "%s() /", __FUNCTION__);
  return( ret);  }
 
 // set size for the partition
 int isp_part_size( const char *_fname, const char *_pname, const off_t _val) {
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ DBG(3, "%s()", __FUNCTION__);
  isp_hdr_t HDR;
  FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
  if ( !Ifp) return( 1);
@@ -250,12 +252,12 @@ int isp_part_size( const char *_fname, const char *_pname, const off_t _val) {
  P->partition_size = _val;
  int ret = ispimg_W_hdr( Ifp, HDR);
  fclose( Ifp);
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ DBG(3, "%s() /", __FUNCTION__);
  return( ret);  }
 
 // set nand OFF for the partition
 int isp_part_nand( const char *_fname, const char *_pname, const off_t _val) {
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ DBG(3, "%s()", __FUNCTION__);
  isp_hdr_t HDR;
  FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
  if ( !Ifp) return( 1);
@@ -267,12 +269,12 @@ int isp_part_nand( const char *_fname, const char *_pname, const off_t _val) {
  P->partition_start_addr = _val;
  int ret = ispimg_W_hdr( Ifp, HDR);
  fclose( Ifp);
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ DBG(3, "%s() /", __FUNCTION__);
  return( ret);  }
 
 // set emmc OFF for the partition
 int isp_part_emmc( const char *_fname, const char *_pname, const off_t _val) {
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ DBG(3, "%s()", __FUNCTION__);
  isp_hdr_t HDR;
  FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
  if ( !Ifp) return( 1);
@@ -284,12 +286,12 @@ int isp_part_emmc( const char *_fname, const char *_pname, const off_t _val) {
  P->emmc_partition_start = _val;
  int ret = ispimg_W_hdr( Ifp, HDR);
  fclose( Ifp);
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ DBG(3, "%s() /", __FUNCTION__);
  return( ret);  }
 
 // set script for the image
 int isp_head_sets( const char *_fname, const char *_sname) {
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ DBG(3, "%s()", __FUNCTION__);
  isp_hdr_t HDR;
  FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
  if ( !Ifp) return( 1);
@@ -310,7 +312,7 @@ int isp_head_sets( const char *_fname, const char *_sname) {
  // try to detect the script size
  isp_hdr_script_t xxx0;
  init_script_hdr_parse( ( unsigned char *)buf, xxx0);
- if ( dbg) printf( "dbg0: script img parsed size: %d\n", xxx0.l);
+ DBG(1, "script img parsed size: %d", xxx0.l);
  if ( xxx0.l > ( sizeof( HDR.init_script) - FIT_HDR_OFF - sizeof( xxx0))) {
    printf( "ERR: parser script size: %d > %ld (%ld-%d-%ld)\n", xxx0.l, sizeof( HDR.init_script) - FIT_HDR_OFF - sizeof( xxx0), sizeof( HDR.init_script), FIT_HDR_OFF, sizeof( xxx0));
    fclose( Ifp);  return( 1);  }
@@ -329,12 +331,12 @@ int isp_head_sets( const char *_fname, const char *_sname) {
    ret = 1;  }
  // writing the script part /
  fclose( Ifp);
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ DBG(3, "%s() /", __FUNCTION__);
  return( ret);  }
 
 // save 
 int isp_setb( const char *_fname, const off_t _off, const char *_sname) {
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ DBG(3, "%s()", __FUNCTION__);
  FILE *Sfp;
  if ( !( Sfp = fopen( _sname, "rb"))) {
    printf( "ERR: can't open file %s: %s(%d)\n", _sname, strerror(errno), errno);
@@ -351,18 +353,18 @@ int isp_setb( const char *_fname, const off_t _off, const char *_sname) {
  FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
  if ( !Ifp) return( 1);
  // read and write
- if ( dbg) printf( "dbg0: Writing %ld bytes at 0x%lX\n", Ssize, _off);
+ DBG(1, "Writing %ld bytes at 0x%lX", Ssize, _off);
  _pos( Ifp, _off);
  int ret = RW( Sfp, 0, Ifp, _off, Ssize);
  // read and write /
  fclose( Ifp);
  fclose( Sfp);
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ DBG(3, "%s() /", __FUNCTION__);
  return( ret);  }
 
 // extract script from the image
 int isp_head_exts( const char *_fname) {
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ DBG(3, "%s()", __FUNCTION__);
  isp_hdr_t HDR;
  FILE *Ifp = ispimg_R_hdr( _fname, "rb", HDR);
  if ( !Ifp) return( 1);
@@ -378,10 +380,10 @@ int isp_head_exts( const char *_fname) {
    printf( "ERR: write %ld bytes failed: %s(%d)\n", sizeof( buf), strerror( errno), errno);
    fclose( Ifp);  fclose( Ofp);  return( 1);  }
  fclose( Ofp);
- if ( dbg) printf( "dbg0: Trying to extract clear text\n");
+ DBG(1, "Trying to extract clear text");
  isp_hdr_script_t xxx0;
  init_script_hdr_parse( HDR.init_script, xxx0);
- if ( dbg) printf( "dbg0: Text size should be %d\n", xxx0.l);
+ DBG(1, "Text size should be %d", xxx0.l);
  size_t h_off = FIT_HDR_OFF + sizeof( xxx0);
  if ( xxx0.l > sizeof( HDR.init_script) - h_off) {
    printf( "ERR: text size %d > %ld (%ld-%ld)\n", xxx0.l, (sizeof( HDR.init_script) - h_off), sizeof( HDR.init_script), h_off);
@@ -395,12 +397,12 @@ int isp_head_exts( const char *_fname) {
    printf( "ERR: write %ld bytes failed: %s(%d)\n", sizeof( buf), strerror( errno), errno);
    ret = 1;  }
  fclose( Ofp);
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ DBG(3, "%s() /", __FUNCTION__);
  return( ret);  }
 
 // wipe partition from the image
 int isp_part_wipe( const char *_fname, const char *_pname) {
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ DBG(3, "%s()", __FUNCTION__);
  isp_hdr_t HDR;
  FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
  if ( !Ifp) return( 1);
@@ -410,19 +412,19 @@ int isp_part_wipe( const char *_fname, const char *_pname) {
  if ( !P) {
    printf( "ERR: partition '%s' not found\n", _pname);
    fclose( Ifp);  return( 1);  }
- if ( dbg) printf( "dbg0: Found '%s'[%d] partition at 0x%X\n", _pname, pIdx, P->file_offset);
+ DBG(1, "Found '%s'[%d] partition at 0x%X", _pname, pIdx, P->file_offset);
  // wipe size and md5
  memset( P->md5sum, 0, sizeof( P->md5sum));
  P->file_size = 0;
  if ( ispimg_W_hdr( Ifp, HDR) != 0) {  fclose( Ifp);  return( 1);  }
  // FIXME: wipe data
  fclose( Ifp);
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ DBG(3, "%s() /", __FUNCTION__);
  return( 0);  }
 
 // extract _len bytes of binary data starting at _off
 int isp_extb( const char *_fname, const off_t _off, const size_t _len) {
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ DBG(3, "%s()", __FUNCTION__);
  isp_hdr_t HDR;
  FILE *Ifp = ispimg_R_hdr( _fname, "rb", HDR);
  if ( !Ifp) return( 1);
@@ -432,17 +434,17 @@ int isp_extb( const char *_fname, const off_t _off, const size_t _len) {
  if ( !( Ofp = fopen( buf, "wb"))) {
    printf( "ERR: can't create file %s: %s(%d)\n", buf, strerror(errno), errno);
    fclose( Ifp);  return( 1);  }
- if ( dbg) printf( "dbg0: dumping %ld bytes from 0x%lX pos\n", _len, _off);
+ DBG(1, "dumping %ld bytes from 0x%lX pos", _len, _off);
  _pos( Ifp, 0);
  int ret = RW( Ifp, _off, Ofp, 0, _len);
  fclose( Ofp);
  fclose( Ifp);
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ DBG(3, "%s() /", __FUNCTION__);
  return( ret);  }
 
 // extract partition from the image
 int isp_part_extp( const char *_fname, const char *_pname) {
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ DBG(3, "%s()", __FUNCTION__);
  isp_hdr_t HDR;
  FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
  if ( !Ifp) return( 1);
@@ -452,7 +454,7 @@ int isp_part_extp( const char *_fname, const char *_pname) {
  if ( !P) {
    printf( "ERR: partition '%s' not found\n", _pname);
    fclose( Ifp);  return( 1);  }
- if ( dbg) printf( "dbg0: Found '%s'[%d] partition at 0x%X\n", _pname, pIdx, P->file_offset);
+ DBG(1, "Found '%s'[%d] partition at 0x%X", _pname, pIdx, P->file_offset);
  FILE *Ofp;
  char buf[ 2048];
  sprintf( buf, TMP_PFX"p.%s", _pname);
@@ -460,17 +462,17 @@ int isp_part_extp( const char *_fname, const char *_pname) {
    printf( "ERR: can't create file %s: %s(%d)\n", buf, strerror(errno), errno);
    fclose( Ifp);  return( 1);  }
  // reading partition...
- if ( dbg) printf( "dbg0: partition %ld bytes\n", P->file_size);
+ DBG(1, "partition %ld bytes", P->file_size);
  int ret = RW( Ifp, P->file_offset, Ofp, 0, P->file_size);
  // reading partition... /
  fclose( Ofp);
  fclose( Ifp);
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ DBG(3, "%s() /", __FUNCTION__);
  return( ret);  }
 
 // delete partition from the image
 int isp_part_dele( const char *_fname, const char *_pname) {
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ DBG(3, "%s()", __FUNCTION__);
  isp_hdr_t HDR;
  FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
  if ( !Ifp) return( 1);
@@ -484,12 +486,12 @@ int isp_part_dele( const char *_fname, const char *_pname) {
  if ( !P) {
    printf( "ERR: partition '%s' not found\n", _pname);
    fclose( Ifp);  return( 1);  }
- if ( dbg) printf( "dbg0: Found '%s'[%d] partition at 0x%X\n", _pname, pIdx, P->file_offset);
+ DBG(1, "Found '%s'[%d] partition at 0x%X", _pname, pIdx, P->file_offset);
  isp_part_t *Pn = &( HDR.partition_info[ pIdx + 1]);    // next partition
  if ( Pn->file_offset < 1) Pn = NULL;
- if ( dbg &&  Pn) printf( "dbg0: Next part '%s' is at 0x%X\n", Pn->file_name, Pn->file_offset);
- if ( dbg && !Pn) printf( "dbg0: This partition is last one\n");
- if ( dbg) printf( "dbg0: (I/P/F) size: %ld/%ld/%ld\n", Isize, P->partition_size, P->file_size);
+ if (  Pn) DBG(1, "Next part '%s' is at 0x%X", Pn->file_name, Pn->file_offset);
+ if ( !Pn) DBG(1, "This partition is last one");
+ DBG(1, "(I/P/F) size: %ld/%ld/%ld", Isize, P->partition_size, P->file_size);
  off_t Psize = P->partition_size;
  // if RESERVED partition size ends after the image file end... 
  if ( P->partition_size + P->file_offset > ( uint64_t)Isize) {
@@ -505,36 +507,37 @@ int isp_part_dele( const char *_fname, const char *_pname) {
  off_t W_off = P->file_offset;              // write starting from ...
  off_t move_size = Isize - ( P->file_offset + Psize);
  if ( move_size < 1) printf( "WRN: 0 bytes to move ?!\n");
- if ( dbg) printf( "dbg0: %ld bytes to move, %ld bytes to delete\n", move_size, Psize);
+ DBG(1, "%ld bytes to move, %ld bytes to delete", move_size, Psize);
  if ( RW( Ifp, R_off, Ifp, W_off, move_size) != 0) {
    fclose( Ifp);  return( 1);  }
- if ( dbg) printf( "dbg0: %ld bytes moved from 0x%lX to 0x%lX\n", move_size, R_off, W_off);
+ DBG(1, "%ld bytes moved from 0x%lX to 0x%lX", move_size, R_off, W_off);
  // wipe part info from header and save it
- if ( dbg) printf( "dbg0: Updating HDR...\n");
+ DBG(1, "Updating HDR...");
  // move parts pointers if there are something after
  for ( int i = pIdx; i < NUM_OF_PARTITION; i++) {
    P = &( HDR.partition_info[ i]);
    if ( i > 0 && P->file_offset < 1) memset( P, 0, sizeof( *P));
    memcpy( P, &( HDR.partition_info[ i + 1]), sizeof( *P));
    if ( i > 0 && P->file_offset < 1) break;
-   if ( dbg) printf( "dbg0: shift '%s'[%d] 0x%X -0x%lX\n", P->file_name, i, P->file_offset, Psize);
+   DBG(1, "shift '%s'[%d] 0x%X -0x%lX", P->file_name, i, P->file_offset, Psize);
    P->file_offset -= Psize;
  }
  if ( ispimg_W_hdr( Ifp, HDR) != 0) {  fclose( Ifp);  return( 1);  }
  // truncate the result
- if ( dbg) printf( "dbg0: truncating I from %ld to %ld bytes (-%ld)...\n", Isize, truncate_size, ( Isize - truncate_size));
+ DBG(1, "truncating I from %ld to %ld bytes (-%ld)...", Isize, truncate_size, ( Isize - truncate_size));
  if ( ftruncate( fileno( Ifp), truncate_size)) {
    printf( "ERR: truncating: %s(%d)\n", strerror( errno), errno);
    fclose( Ifp);  return( 1);  }
  fclose( Ifp);
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ DBG(3, "%s() /", __FUNCTION__);
  return( 0);  }
 
 // show image info
 int isp_list( const char *_fname) {
- if ( dbg > 1) printf( "dbg1: %s()\n", __FUNCTION__);
+ DBG(3, "%s()", __FUNCTION__);
  isp_hdr_t HDR;
  FILE *Ifp = ispimg_R_hdr( _fname, "rb", HDR);
+ if ( !Ifp) return( 1);
  off_t Isize = _siz( Ifp);
  fclose( Ifp);
  printf( "HEADER 0x%X :\n", OFF_HDR);
@@ -560,9 +563,9 @@ int isp_list( const char *_fname) {
    printf( "\tfilename: %s\n", P->file_name);
    printf( "\tmd5sum: %s\n", P->md5sum);
    printf( "\tfile offset: 0x%X\n", P->file_offset);
-   printf( "\tfile size: %ld\n", P->file_size);
+   printf( "\tfile size: %" PRIu64 "\n", P->file_size);
    printf( "\tpart start addr: 0x%X\n", P->partition_start_addr);
-   printf( "\tpart size: %ld\n", P->partition_size);
+   printf( "\tpart size: %" PRIu64 "\n", P->partition_size);
    printf( "\tflags: 0x%X\n", P->flags);
    printf( "\temmc part start block: 0x%X\n", P->emmc_partition_start);
    if ( Isize < leop) {
@@ -570,5 +573,5 @@ int isp_list( const char *_fname) {
      printf( "WRN: image eof is at %ld\n", Isize);
    }
  }
- if ( dbg > 1) printf( "dbg1: %s() /\n", __FUNCTION__);
+ DBG(3, "%s() /", __FUNCTION__);
  return( 0);  }
