@@ -1,0 +1,28 @@
+
+dv_part() {
+ pinfo=$(echo "${1}" | grep -A 7 "filename: ${2}$")
+ echo "${pinfo}"
+}
+
+dv_part_info() {
+ x=$(echo "${1}" | grep "${2}" | sed -e "s/${2}//" -e 's/\s*//')
+ echo "${x}"
+}
+
+dv_blocks() {
+ bs=${2}
+ x=$(((${1}/${bs})-1))
+ y=$(($1%${bs}))
+ r=""
+ for i in $(seq 0 ${x}); do
+   r="${r} $bs"
+ done
+ r1=""
+ if [ $y -ne 0 ]; then
+   r1=$(printf '0x%x' $y)
+ fi
+ if [ ! -z "${r1}" ]; then
+   r="${r} ${r1}";
+ fi;
+ echo "$r"
+}
