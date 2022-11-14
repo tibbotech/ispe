@@ -48,6 +48,11 @@ make
 
 ## Examples
 
+#### Generate EMMC ISP script for the existing image
+```
+./gen_isp_emmc.sh ./ISPBOOOT.BIN ./emmc.txt
+```
+
 #### Show ISPBOOOT.BIN data
 ```
 ./ispe ./ISPBOOOT.BIN list
