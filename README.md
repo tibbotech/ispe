@@ -93,7 +93,7 @@ mkimage -l ./isp.h.script.raw.tmp
 
 #### Update the header script from script text file:
 ```
-./script_enc.sh ./myscript.txt ./myscript.raw
+./script_enc.sh "Init ISP Script" ./myscript.txt ./myscript.raw
 ./ispe ./ISPBOOOT.BIN head sets ./mysript.raw
 ```
 
