@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Creates ISP script for the image
+# result is saved to $2 or isp.txt (if no $2)
+
 if [ $# -lt 1 ]; then
   echo "Usage: $0 <image-file> [out-file]"
   exit 1;
@@ -44,6 +47,7 @@ echo "${output}" | grep "filename:" | while read x part; do
     p_size=$p_size1
   fi;
   p_start=$(printf '0x%x' $((p_start*512)))
+  if [ $p_size -eq 0 ]; then p_size=$((512*1024));  fi;
   p_size=$(printf '%dKiB' $(((p_size/1024)+1)))
 #  echo "${part} : ${p_size0} ${p_size1} = ${p_size} Kib $is_1M"
   if [ "${part}" == "rootfs" ]; then  p_size="-";  fi;
