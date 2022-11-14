@@ -17,7 +17,6 @@ Usage: ./ispe <img> [-v] <cmd> [cmdparams]
         part <name> dele - delete the partition from the image
         part <name> addp - create new partition
         part <name> extp - extract partition to ...
-        part <name> wipe - wipe the partition keeping general info
         part <name> file <file> - load data for the partition from the raw file
         part <name> flag <0xXX> - set flag = 0xXX to partition <name>
         part <name> size <0xXX> - set size = 0xXX to partition <name>
@@ -44,13 +43,14 @@ make
 
 ### Runtime Requirements:
 
+- bash >= 3.0
 - mkimage (u-boot-tools package)
 
 ## Examples
 
 #### Generate EMMC ISP script for the existing image
 ```
-./gen_isp_emmc.sh ./ISPBOOOT.BIN ./emmc.txt
+ISPEDIR=. ispe-helpers/genisp.emmc.sh ./ISPBOOOT.BIN ./emmc.txt
 ```
 
 #### Show ISPBOOOT.BIN data
@@ -98,7 +98,7 @@ mkimage -l ./isp.h.script.raw.tmp
 
 #### Update the header script from script text file:
 ```
-./script_enc.sh "Init ISP Script" ./myscript.txt ./myscript.raw
+./ispe-helpers/script_enc.sh "Init ISP Script" ./myscript.txt ./myscript.raw
 ./ispe ./ISPBOOOT.BIN head sets ./mysript.raw
 ```
 
@@ -114,3 +114,5 @@ Extracts 16 bytes starting at 0x100 offset into 'isp.b.100.16' file
 ```
 Saves the raw file contents from the file 'isp.b.100.16' to the image starting at 0x100 offset.
 IMG Header is protected.
+
+[Hope it helps](https://i.gifer.com/7icR.gif)
