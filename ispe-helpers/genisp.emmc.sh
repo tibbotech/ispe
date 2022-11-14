@@ -8,11 +8,11 @@ if [ $# -lt 1 ]; then
   exit 1;
 fi;
 
-. sh.defs
+. ${ISPEDIR}ispe-helpers/sh.defs
 
 O="${2:-isp.txt}"
 
-output=$(./ispe ${1} list)
+output=$(${ISPEDIR}ispe ${1} list)
 if [ $? -ne 0 ]; then  echo "${output}";  exit 1;  fi;
 
 # init EMMC first
@@ -47,11 +47,9 @@ echo "${output}" | grep "filename:" | while read x part; do
     p_size=$p_size1
   fi;
   p_start=$(printf '0x%x' $((p_start*512)))
-  if [ $p_size -eq 0 ]; then p_size=$((512*1024));  fi;
   p_size=$(printf '%dKiB' $(((p_size/1024)+1)))
 #  echo "${part} : ${p_size0} ${p_size1} = ${p_size} Kib $is_1M"
-  # not working if it is not the last partition
-#  if [ "${part}" == "rootfs" ]; then  p_size="-";  fi;
+  if [ "${part}" == "rootfs" ]; then  p_size="-";  fi;
   echo -ne ";name=${part},uuid=\${uuid_gpt_${part}}" >> ${O}
   echo -ne ",start=${p_start}" >> ${O}
   echo -ne ",size=${p_size}" >> ${O}

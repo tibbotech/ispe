@@ -10,7 +10,7 @@
 #include "isp.h"
 
 #define TMP_PFX "isp."
-#define IMAGE_NAME "Pentagram_ISP_image"
+#define IMAGE_NAME "ISP_image"
 
 uint8_t dbg = 0;
 
