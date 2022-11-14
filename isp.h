@@ -43,7 +43,6 @@ struct partition_info_s {
     //     Header, XBoot-1, UBoot-1, ..., and Partition-0.
     // reserved size for this partition, less than 4GB is #else
 #ifdef SOC_SPHE8368
-#error "xxx"
     uint32_t partition_size;
 #else
     uint64_t partition_size;
