@@ -61,7 +61,8 @@ echo "Fixing xboot to 0x0 EMMC off..."
 ./ispe ${f1pfx}${f1} part "xboot1" emmc 0x0
 
 echo "Fixing rootfsB to 0x32222 EMMC off..."
-./ispe ${f1pfx}${f1} part "rootfsB" emmc 0x32222
+#./ispe ${f1pfx}${f1} part "rootfsB" emmc 0x32222
+./ispe ${f1pfx}${f1} part "rootfsB" emmc $(printf '0x%x' $(((4*1024*1024*1024-500*1024*1024)/512)))
 
 echo "Generating the ISP script..."
 ./gen_isp_emmc.sh ${f1pfx}${f1} ./emmc.txt
