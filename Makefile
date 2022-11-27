@@ -4,7 +4,7 @@
 all: ispe
 
 ispe: ispe.cpp utils.cpp
-	$(CXX) $(CFLAGS) -lssl -lcrypto -Wall -o ispe ispe.cpp utils.cpp
+	$(CXX) $(CFLAGS) $(LDFLAGS) -Wall -o ispe ispe.cpp utils.cpp -lcrypto -lssl
 
 install:
 	install -d $(DESTDIR)/

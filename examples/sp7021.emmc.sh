@@ -60,6 +60,7 @@ LP=$(echo "${output}" | grep "Last part " | sed -e 's/Last part EOF: 0x//')
 TL=$(echo "${output}" | grep "Tail data " | sed -e 's/Tail data len: //')
 echo "LP:${LP}"
 echo "TL:${TL}"
+TLh=$(printf '%x' ${TL})
 
 echo "Installing the HDR script..."
 cat ${ISPEDIR}ispe-templates/sp7021.hdr.T | sed -e "s/{T_OFF}/0x${LP}/" -e "s/{T_SIZE}/0x${TLh}/" > ${pfx}/head.script.txt
