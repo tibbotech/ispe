@@ -93,14 +93,17 @@ echo "${output}" | grep "filename:" | while read x part; do
     echo "Warning: 'emmc part start block' is not defined for ${part}"
     p_emmc0="0x0"
   fi;
-  if [ "${part}" == "xboot1" ]; then
-    echo "mmc partconf 0 0 7 1" >> ${O}
-  fi;
+#  if [ "${part}" == "xboot1" ]; then
+#    echo "mmc partconf 0 0 7 1" >> ${O}
+#  fi;
   # FIXME: in cycle p_emmc += off
   blocks=$(dv_blocks "$p_size" 0x200000)
   for i in $blocks; do
     echo "fatload \$isp_if \$isp_dev \$isp_ram_addr /ISPBOOOT.BIN ${i} ${p_pos}" >> ${O}
     block=$(printf '0x%x' $((i/512)))
+  if [ "${part}" == "xboot1" ]; then
+    echo "mmc partconf 0 0 7 1" >> ${O}
+  fi;
     echo "mmc write \$isp_ram_addr ${p_emmc0} ${block}" >> ${O}
     p_pos=$(printf '0x%x' $((p_pos+${i})))
     p_emmc0=$(printf '0x%x' $((p_emmc0+(${i}/512))))
