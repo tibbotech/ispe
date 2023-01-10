@@ -11,6 +11,8 @@
 // SP7021: FILE_SIZE_IMAGE_XBOOT0( 64K) + FILE_SIZE_IMAGE_UBOOT0(940K)
 // Q645:   FILE_SIZE_IMAGE_XBOOT0(160K) + FILE_SIZE_IMAGE_UBOOT0(864K)
 
+#define EMMC_BLKSIZE 512
+
 #define OFF_HDR 0x100000
 
 #define SIZE_FILE_NAME 32
@@ -82,8 +84,8 @@ void init_script_hdr_parse( const unsigned char *_hdr, isp_hdr_script_t &_x);
 FILE *ispimg_R_hdr( const char *_fname, const char *_m, isp_hdr_t &_HDR);
 int ispimg_W_hdr( FILE *_fp, isp_hdr_t &_HDR);
 isp_part_t *find_part( isp_hdr_t &_hdr, const char *_pname, uint8_t &_idx);
-int RW( FILE *_R, const off_t _Roff, FILE *_W, const off_t _Woff, const off_t _len);
+int RW( FILE *_R, const off_t _Roff, FILE *_W, const off_t _Woff, const off_t _len, const off_t _pad);
 
-int md5sum( FILE *_F, char *_s);
+int md5sum( FILE *_F, char *_s, const off_t _pad);
 
 #endif

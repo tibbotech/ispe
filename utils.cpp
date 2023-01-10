@@ -10,7 +10,7 @@
 #include <openssl/md5.h>    // openssl/md5 funcs
 #include "isp.h"
 
-int RW( FILE *_R, const off_t _Roff, FILE *_W, const off_t _Woff, const off_t _len) {
+int RW( FILE *_R, const off_t _Roff, FILE *_W, const off_t _Woff, const off_t _len, const off_t _pad) {
  if ( _len == 0) return( 0);
  // if files are different - able to pos once
  if ( _R != _W) {
@@ -46,6 +46,13 @@ int RW( FILE *_R, const off_t _Roff, FILE *_W, const off_t _Woff, const off_t _l
      ERR( "W %ld bytes: %s(%d)", szr, strerror( errno), errno);
      return( 1);  }
    bdone += ( _len > 0 ? szr : -szr);  }
+ if ( _pad > 0) {
+   DBG(4, "W padding %ld bytes at 0x%lX", _pad, W0 + bdone);
+   memset( buf, 0, sizeof( buf));
+   if ( fwrite( buf, _pad, 1, _W) != 1) {
+     ERR( "W padding %ld bytes: %s(%d)", _pad, strerror( errno), errno);
+     return( 1);  }
+ }
  return( 0); }
 
 isp_part_t *find_part( isp_hdr_t &_hdr, const char *_pname, uint8_t &_idx) {
@@ -119,7 +126,7 @@ void p_hex( uint8_t *_x, uint32_t _s) {
  for ( uint32_t i = 0; i < _s; i++) printf( "%01X", _x[ i]);
  return;  }
 
-int md5sum( FILE *_F, char *_s) {
+int md5sum( FILE *_F, char *_s, const off_t _pad) {
  MD5_CTX c;
  isp_part_t P;
  DBG(3, "%s()", __FUNCTION__);
@@ -142,6 +149,8 @@ int md5sum( FILE *_F, char *_s) {
    if ( szr < 1) break;
    MD5_Update( &c, buf, szr);
  }
+ memset( buf, 0, sizeof( buf));
+ if ( _pad) MD5_Update( &c, buf, _pad);
  DBG(4, "md5_fin...");
  MD5_Final( out, &c);
  memset( _s, 0, sizeof( P.md5sum));

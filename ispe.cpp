@@ -179,12 +179,12 @@ int isp_part_file( const char *_fname, const char *_pname, const char *_file) {
    ERR( "open '%s': %s(%d)", _file, strerror(errno), errno);
    fclose( Ifp);  return( 1);  }
  off_t Ssize = _siz( Sfp);
-// if ( Ssize == 0) {
-//   ERR( "stat failed: %s(%d)", strerror( errno), errno);
-//   fclose( Ifp);  fclose( Sfp);  return( 1);  }
+ off_t pad = ( EMMC_BLKSIZE - ( Ssize % EMMC_BLKSIZE));
+ if ( pad == EMMC_BLKSIZE) pad = 0;
+ if ( pad) DBG(1, "should pad %ld bytes", pad)
  off_t old_plen = P->file_size;
  off_t add_len = 0;
- if ( Ssize > old_plen) add_len = Ssize - old_plen;
+ if ( ( Ssize + pad) > old_plen) add_len = Ssize + pad - old_plen;
 
  isp_part_t *Pi = NULL;
  off_t move_at = 0;
@@ -200,16 +200,16 @@ int isp_part_file( const char *_fname, const char *_pname, const char *_file) {
  int ret = 0;
  if ( move_at) {
    DBG(1, "--> %ld bytes at %lX for %ld", Isize - move_at, move_at, add_len);
-   ret = RW( Ifp, Isize, Ifp, Isize + add_len, -( Isize - move_at));
+   ret = RW( Ifp, Isize, Ifp, Isize + add_len, -( Isize - move_at), 0);
  }
  if ( ret != 0) {  fclose( Ifp);  fclose( Sfp);  return( ret);  }
  // save the partition table
- P->file_size = Ssize;
- md5sum( Sfp, ( char *)P->md5sum);
+ P->file_size = Ssize + pad;
+ md5sum( Sfp, ( char *)P->md5sum, pad);
  if ( ispimg_W_hdr( Ifp, HDR) != 0) {  fclose( Ifp);  fclose( Sfp);  return( 1);  }
  DBG(1, "writing the body...");
  _pos( Sfp, 0);
- ret = RW( Sfp, 0, Ifp, P->file_offset, Ssize);
+ ret = RW( Sfp, 0, Ifp, P->file_offset, Ssize, pad);
  fclose( Sfp);
  fclose( Ifp);
  DBG(3, "%s() /", __FUNCTION__);
@@ -335,6 +335,8 @@ int isp_setb( const char *_fname, const char *_offs, const char *_sname) {
  if ( Ssize == 0) {
    ERR( "stat failed: %s(%d)", strerror( errno), errno);
    fclose( Sfp);  return( 1);  }
+// off_t pad = ( EMMC_BLKSIZE - ( Ssize % EMMC_BLKSIZE));
+// if ( pad == EMMC_BLKSIZE) pad = 0;
  isp_hdr_t HDR;
  FILE *Ifp = ispimg_R_hdr( _fname, "r+b", HDR);
  if ( !Ifp) return( 1);
@@ -351,7 +353,7 @@ int isp_setb( const char *_fname, const char *_offs, const char *_sname) {
    if ( Pi->file_size < 1) continue;
    lastp_off += Pi->file_size;  }
  DBG(1, "last partition data offset eof:0x%lX", lastp_off);
- if ( off + Ssize > OFF_HDR && off < lastp_off) {
+ if ( off + Ssize/* + pad*/ > OFF_HDR && off < lastp_off) {
    ERR( "0x%X (HDR) <= 0x%lX (off) < 0x%lX (last partition data offset)", OFF_HDR, off, lastp_off);
    fclose( Ifp);  fclose( Sfp);  return( 1);  }
 // // FIXME: test for size
@@ -361,7 +363,7 @@ int isp_setb( const char *_fname, const char *_offs, const char *_sname) {
  // read and write
  DBG(1, "Writing %ld bytes at 0x%lX", Ssize, off);
  _pos( Ifp, off);
- int ret = RW( Sfp, 0, Ifp, off, Ssize);
+ int ret = RW( Sfp, 0, Ifp, off, Ssize, 0);
  // read and write /
  fclose( Ifp);
  fclose( Sfp);
@@ -419,7 +421,7 @@ int isp_extb( const char *_fname, const off_t _off, const size_t _len) {
    fclose( Ifp);  return( 1);  }
  DBG(1, "dumping %ld bytes from 0x%lX pos", _len, _off);
  _pos( Ifp, 0);
- int ret = RW( Ifp, _off, Ofp, 0, _len);
+ int ret = RW( Ifp, _off, Ofp, 0, _len, 0);
  fclose( Ofp);
  fclose( Ifp);
  DBG(3, "%s() /", __FUNCTION__);
@@ -444,7 +446,7 @@ int isp_part_extp( const char *_fname, const char *_pname) {
    fclose( Ifp);  return( 1);  }
  // reading partition...
  DBG(1, "partition %ld bytes", P->file_size);
- int ret = RW( Ifp, P->file_offset, Ofp, 0, P->file_size);
+ int ret = RW( Ifp, P->file_offset, Ofp, 0, P->file_size, 0);
  // reading partition... /
  fclose( Ofp);
  fclose( Ifp);
@@ -487,7 +489,7 @@ int isp_part_dele( const char *_fname, const char *_pname) {
  off_t move_size = Isize - ( P->file_offset + Psize);
  if ( move_size < 1) printf( "WRN: 0 bytes to move ?!\n");
  DBG(1, "%ld bytes to move, %ld bytes to delete", move_size, Psize);
- if ( RW( Ifp, R_off, Ifp, W_off, move_size) != 0) {
+ if ( RW( Ifp, R_off, Ifp, W_off, move_size, 0) != 0) {
    fclose( Ifp);  return( 1);  }
  DBG(1, "%ld bytes moved from 0x%lX to 0x%lX", move_size, R_off, W_off);
  // wipe part info from header and save it
