@@ -31,25 +31,47 @@ echo "${output}" | grep "filename:" | while read x part; do
 done
 echo "" >> ${O}
 
+##### set partition sizes array
+declare -A pA_size
+declare -A pA_start
+i=-1
+while read x part; do
+  # do not mention xboot1 in GPT
+  if [ "${part}" == "xboot1" ]; then  continue;  fi;
+  i=$(($i+1))
+  pinfo=$(dv_part "${output}" "${part}")
+  p_start=$(dv_part_info "${pinfo}" "emmc part start block: ")
+  pA_size[$i]="-";
+  pA_start[$i]="${p_start}"
+  # if previous partition size is not defined - set it now
+  iP=$(($i-1))
+  if [ $i -gt 0 ] && [ "${pA_size[$iP]}" == "-" ]; then
+    p0=$(printf '%d' ${pA_start[$iP]})
+    p1=$(printf '%d' ${pA_start[$i]})
+    pA_size[$iP]=$(((($p1-$p0)/2)))
+  fi;
+  # check if part size defined in IMG
+  sz=$(dv_part_info "${pinfo}" "part size: ")
+  if [ "${sz}" != "0" ]; then  pA_size[$i]="${sz}";  continue;  fi;
+  # partition size is not defined, calculate it on next iteration
+done <<< `echo "${output}" | grep "filename:"`
+##### set partition sizes array /
+
 # generating partitions...
+i=-1
 echo -ne "setenv partitions \"uuid_disk=\${uuid_gpt_disk}" >> ${O}
 echo "${output}" | grep "filename:" | while read x part; do
   # do not mention xboot1 in GPT
   if [ "${part}" == "xboot1" ]; then  continue;  fi;
+  i=$(($i+1))
   pinfo=$(dv_part "${output}" "${part}")
   p_start=$(dv_part_info "${pinfo}" "emmc part start block: ")
-  # check if part size defined in IMG
-  p_size0=$(dv_part_info "${pinfo}" "part size: ")
-  p_size1=$(dv_part_info "${pinfo}" "file size: ")
-  p_size=$p_size0
-  if [ $p_size0 -eq 0 ]; then
-    echo "WRN: part '${part}' size == 0, trying ${p_size1}"
-    p_size=$p_size1
-  fi;
   p_start=$(printf '0x%x' $((p_start*512)))
-  p_size=$(printf '%dKiB' $(((p_size/1024)+1)))
-#  echo "${part} : ${p_size0} ${p_size1} = ${p_size} Kib $is_1M"
-  if [ "${part}" == "rootfs" ]; then  p_size="-";  fi;
+  p_size="${pA_size[$i]}"
+  if [ "${p_size}" != "-" ]; then
+    p_size="${p_size}KiB"
+  fi;
+  # echo "${part} at ${p_start} : ${p_size}"
   echo -ne ";name=${part},uuid=\${uuid_gpt_${part}}" >> ${O}
   echo -ne ",start=${p_start}" >> ${O}
   echo -ne ",size=${p_size}" >> ${O}
@@ -77,10 +99,11 @@ echo "${output}" | grep "filename:" | while read x part; do
 done
 echo "" >> ${O}
 
+exit 0
 # write the writers...
 
 echo "${output}" | grep "filename:" | while read x part; do
-  echo "echo programming ${part} ..." >> ${O}
+  echo "echo writing ${part} contents ..." >> ${O}
   pinfo=$(dv_part "${output}" "${part}")
   p_pos=$(dv_part_info "${pinfo}" "file offset: ")
   p_size0=$(dv_part_info "${pinfo}" "part size: ")
