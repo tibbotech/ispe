@@ -99,7 +99,6 @@ echo "${output}" | grep "filename:" | while read x part; do
 done
 echo "" >> ${O}
 
-exit 0
 # write the writers...
 
 echo "${output}" | grep "filename:" | while read x part; do
