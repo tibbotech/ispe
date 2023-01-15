@@ -445,7 +445,7 @@ int isp_part_extp( const char *_fname, const char *_pname) {
    ERR( "can't create file %s: %s(%d)", buf, strerror(errno), errno);
    fclose( Ifp);  return( 1);  }
  // reading partition...
- DBG(1, "partition %ld bytes", P->file_size);
+ DBG(1, "partition %ld bytes", ( uint64_t)P->file_size);
  int ret = RW( Ifp, P->file_offset, Ofp, 0, P->file_size, 0);
  // reading partition... /
  fclose( Ofp);
@@ -472,7 +472,7 @@ int isp_part_dele( const char *_fname, const char *_pname) {
  if ( Pn->file_offset < 1) Pn = NULL;
  if (  Pn) DBG(1, "Next part '%s' is at 0x%X", Pn->file_name, Pn->file_offset);
  if ( !Pn) DBG(1, "This partition is last one");
- DBG(1, "(I/P/F) size: %ld/%ld/%ld", Isize, P->partition_size, P->file_size);
+ DBG(1, "(I/P/F) size: %ld/%ld/%ld", Isize, ( uint64_t)P->partition_size, ( uint64_t)P->file_size);
  off_t Psize = P->partition_size;
  // if RESERVED partition size ends after the image file end... 
  if ( P->partition_size + P->file_offset > ( uint64_t)Isize) {
@@ -544,9 +544,9 @@ int isp_list( const char *_fname) {
    printf( "\tfilename: %s\n", P->file_name);
    printf( "\tmd5sum: %s\n", P->md5sum);
    printf( "\tfile offset: 0x%X\n", P->file_offset);
-   printf( "\tfile size: %" PRIu64 "\n", P->file_size);
+   printf( "\tfile size: %" PRIu64 "\n", ( uint64_t)P->file_size);
    printf( "\tpart start addr: 0x%X\n", P->partition_start_addr);
-   printf( "\tpart size: %" PRIu64 "\n", P->partition_size);
+   printf( "\tpart size: %" PRIu64 "\n", ( uint64_t)P->partition_size);
    printf( "\tflags: 0x%X\n", P->flags);
    printf( "\temmc part start block: 0x%X\n", P->emmc_partition_start);
    if ( Isize < leop) {
@@ -555,7 +555,7 @@ int isp_list( const char *_fname) {
    }
  }
  if ( P) {
-   printf( "Last part EOF: 0x%lX\n", P->file_offset + P->file_size);
+   printf( "Last part EOF: 0x%lX\n", ( uint64_t)( P->file_offset + P->file_size));
    printf( "Image EOF: 0x%lX\n", Isize);
    printf( "Tail data len: %ld\n", Isize - ( P->file_offset + P->file_size));
  }
