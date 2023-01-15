@@ -37,6 +37,11 @@ Please, see test0.sh for more examples.
 ```
 make
 ```
+for [Plus1](https://tibbo.com/store/plus1.html) (sp70*) SoCs or
+```
+make CFLAGS+="-DSOC_SPHE8368"
+```
+for In-Vehicle Infotainment [SPHE8368](https://www.sunplus.com/products/sphe8368.asp) SoCs
 ### Build Requirements:
 
 - openssl-dev package (libssl, libcrypto + headers)
