@@ -18,3 +18,5 @@ install:
 
 clean:
 	rm -rf ./ispe
+
+ispe : isp.h

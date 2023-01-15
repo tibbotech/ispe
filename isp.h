@@ -35,6 +35,7 @@ struct partition_info_s {
     uint32_t file_offset;                // offset in output file
 #ifdef SOC_SPHE8368
     uint32_t file_size;                  // file size of the partition
+    uint32_t padding0;
 #else
     uint64_t file_size;                  // file size of the partition
 #endif
@@ -46,6 +47,7 @@ struct partition_info_s {
     // reserved size for this partition, less than 4GB is #else
 #ifdef SOC_SPHE8368
     uint32_t partition_size;
+    uint32_t padding1;
 #else
     uint64_t partition_size;
 #endif
