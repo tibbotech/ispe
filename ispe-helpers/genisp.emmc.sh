@@ -35,6 +35,7 @@ echo "" >> ${O}
 declare -A pA_size
 declare -A pA_start
 i=-1
+LLL=$(echo -e "${output}" | grep "filename:")
 while read x part; do
   # do not mention xboot1 in GPT
   if [ "${part}" == "xboot1" ]; then  continue;  fi;
@@ -54,7 +55,7 @@ while read x part; do
   sz=$(dv_part_info "${pinfo}" "part size: ")
   if [ "${sz}" != "0" ]; then  pA_size[$i]="${sz}";  continue;  fi;
   # partition size is not defined, calculate it on next iteration
-done <<< `echo "${output}" | grep "filename:"`
+done <<< "$LLL"
 ##### set partition sizes array /
 
 # generating partitions...
