@@ -16,7 +16,7 @@ echo "Interface: $isp_if"
 fatinfo $isp_if $isp_dev
 fatls   $isp_if $isp_dev /
 
-setenv isp_size_total 0x1b0f0800
+setenv isp_size_total {T_OFF}
 if test "$isp_force_to_abort" = yes ; then
     echo isp_force_to_abort
     exit -1
@@ -24,11 +24,11 @@ fi
 
 echo Load ISP main script and run it ...
 if test "$isp_main_storage" = nand ; then
-  fatload $isp_if $isp_dev $isp_ram_addr /ISPBOOOT.BIN 0xe800 0x1b1f4800
+  fatload $isp_if $isp_dev $isp_ram_addr /ISPBOOOT.BIN {T_SIZE} {T_OFF}
 elif test "$isp_main_storage" = emmc ; then
   fatload $isp_if $isp_dev $isp_ram_addr /ISPBOOOT.BIN {T_SIZE} {T_OFF}
 else
   setenv isp_main_storage nand
-  fatload $isp_if $isp_dev $isp_ram_addr /ISPBOOOT.BIN 0xe800 0x1b1f4800
+  fatload $isp_if $isp_dev $isp_ram_addr /ISPBOOOT.BIN {T_SIZE} {T_OFF}
 fi
 source $isp_ram_addr
