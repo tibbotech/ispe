@@ -554,10 +554,14 @@ int isp_list( const char *_fname) {
      printf( "WRN: image eof is at %ld\n", Isize);
    }
  }
+ uint64_t psz = 0;
  if ( P) {
-   printf( "Last part EOF: 0x%lX\n", ( uint64_t)( P->file_offset + P->file_size));
-   printf( "Image EOF: 0x%lX\n", Isize);
-   printf( "Tail data len: %ld\n", Isize - ( P->file_offset + P->file_size));
+   psz = P->file_offset + P->file_size;
+   printf( "Last part EOF: 0x%lX\n", psz);
+ }
+ printf( "Image EOF: 0x%lX\n", Isize);
+ if ( P) {
+   printf( "Tail data len: %ld\n", ( P->file_offset ? ( Isize - psz) : 0));
  }
  DBG(3, "%s() /", __FUNCTION__);
  return( 0);  }
