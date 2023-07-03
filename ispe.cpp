@@ -545,7 +545,7 @@ int isp_list( const char *_fname) {
    printf( "\tmd5sum: %s\n", P->md5sum);
    printf( "\tfile offset: 0x%X\n", P->file_offset);
    printf( "\tfile size: %" PRIu64 "\n", ( uint64_t)P->file_size);
-   printf( "\tpart start addr: 0x%X\n", P->partition_start_addr);
+   printf( "\tnand part start addr: 0x%X\n", P->partition_start_addr);
    printf( "\tpart size: %" PRIu64 "\n", ( uint64_t)P->partition_size);
    printf( "\tflags: 0x%X\n", P->flags);
    printf( "\temmc part start block: 0x%X\n", P->emmc_partition_start);
