@@ -17,23 +17,29 @@ if [ $? -ne 0 ]; then  echo "${output}";  exit 1;  fi;
 
 # format NAND first
 echo "echo \"Initializing NAND...\"" > ${O}
+echo "nand info" >> ${O}
 echo "nand erase.chip && nand bad" >> ${O}
 echo "" >> ${O}
 # clean partitions
 echo "mtdparts default && mtdparts delall" >> ${O}
 echo "" >> ${O}
 
-# starting NAND partitions...
 echo "setenv isp_addr_next \${nand_erasesize}" >> ${O}
 echo "setenv isp_mtdpart_size 0x\${isp_addr_next}" >> ${O}
 echo "mtdparts add nand0 \${isp_mtdpart_size}@0x00000000 nand_header" >> ${O}
 echo "printenv mtdparts" >> ${O}
 echo "" >> ${O}
+# u-boot CONFIG_ENV_OFFSET preconfigured value
+echo "setenv isp_nand_addr_1st_part 0x400000" >> ${O}
+echo "" >> ${O}
+
+# starting NAND partitions...
 
 ##### set partition sizes array
 declare -A pA_size
 declare -A pA_start
 i=-1
+LLL=$(echo -e "${output}" | grep "filename:")
 while read x part; do
   # do not mention xboot1 in GPT
   if [ "${part}" == "xboot1" ]; then  continue;  fi;
@@ -53,71 +59,73 @@ while read x part; do
   sz=$(dv_part_info "${pinfo}" "part size: ")
   if [ "${sz}" != "0" ]; then  pA_size[$i]="${sz}";  continue;  fi;
   # partition size is not defined, calculate it on next iteration
-done <<< `echo "${output}" | grep "filename:"`
+done <<< "$LLL"
 ##### set partition sizes array /
 
-## generating partitions...
-#i=-1
-#echo -ne "setenv partitions \"uuid_disk=\${uuid_gpt_disk}" >> ${O}
-#echo "${output}" | grep "filename:" | while read x part; do
-#  # do not mention xboot1 in GPT
-#  if [ "${part}" == "xboot1" ]; then  continue;  fi;
-#  i=$(($i+1))
-#  pinfo=$(dv_part "${output}" "${part}")
-#  p_start=$(dv_part_info "${pinfo}" "emmc part start block: ")
-#  p_start=$(printf '0x%x' $((p_start*512)))
-#  p_size="${pA_size[$i]}"
-#  if [ "${p_size}" != "-" ]; then
-#    p_size="${p_size}KiB"
-#  fi;
-#  # echo "${part} at ${p_start} : ${p_size}"
-#  echo -ne ";name=${part},uuid=\${uuid_gpt_${part}}" >> ${O}
-#  echo -ne ",start=${p_start}" >> ${O}
-#  echo -ne ",size=${p_size}" >> ${O}
-#done
-#echo "\"" >> ${O}
-#echo "" >> ${O}
-
+BHDR_SZ=""
+BBLK=0
 # write the writers...
-
-echo "${output}" | grep "filename:" | while read x part; do
+while read x part; do
   echo "echo writing ${part} contents ..." >> ${O}
   pinfo=$(dv_part "${output}" "${part}")
+  p_flags=$(dv_part_info "${pinfo}" "flags: ")
   p_pos=$(dv_part_info "${pinfo}" "file offset: ")
   p_size0=$(dv_part_info "${pinfo}" "part size: ")
   p_size1=$(dv_part_info "${pinfo}" "file size: ")
-  p_size=$p_size0
-  if [ $p_size1 -gt $p_size0 ]; then p_size=$p_size1;  fi;
-  p_len=${p_size}
-  p_nand0=$(dv_part_info "${pinfo}" "part start addr: ")
+  if [ "x${BHDR_SZ}" == "x" ]; then  BHDR_SZ=$(printf "0x%X" ${p_size1});  fi;
+  p_nand0=$(dv_part_info "${pinfo}" "nand part start addr: ")
   if [ -z "${p_nand0}" ]; then
-    echo "Warning: 'nand part start block' is not defined for ${part}"
+    echo "Warning: 'nand part start addr' is not defined for ${part}"
     p_nand0="0x0"
   fi;
-#  if [ "${part}" == "xboot1" ]; then
-#    echo "mmc partconf 0 0 7 1" >> ${O}
-#  fi;
+  partsz=$(printf "0x%X" $p_size0)
+  if [ "${part}" == "rootfs" ]; then  partsz="-";  fi;
+  if [ "${p_flags}" != "0x0" ]; then
+    echo "setexpr isp_nand_addr 0x\${isp_addr_next}" >> ${O}
+  else
+    echo "setexpr isp_nand_addr \$isp_nand_addr_1st_part + ${p_nand0}" >> ${O}
+    echo "setenv isp_nand_addr 0x\${isp_nand_addr}" >> ${O}
+  fi;
+  printf "echo partition: %s, start from \$isp_nand_addr, size: 0x%X, programmed size: 0x%X\n" $part $p_size0 $p_size1 >> ${O}
+  if [ "${p_flags}" != "0x0" ]; then
+    echo "setexpr isp_mtdpart_size \${isp_nand_addr_1st_part} - \${isp_nand_addr}" >> ${O}
+    echo "setenv isp_mtdpart_size 0x\${isp_mtdpart_size}" >> ${O}
+  else
+    echo "setenv isp_mtdpart_size ${partsz}" >> ${O}
+  fi;
+  echo "mtdparts add nand0 \${isp_mtdpart_size}@\${isp_nand_addr} ${part}" >> ${O}
+
+  if [ "${part}" == "rootfs" ]; then
+    echo "ubi part rootfs 2048" >> ${O}
+    echo "ubi create rootfs ${partsz}" >> ${O}
+  fi;
   # FIXME: in cycle p_emmc += off
-  blocks=$(dv_blocks "$p_size" 0x200000)
+  blocks=$(dv_blocks "$p_size1" 0x200000)
   for i in $blocks; do
     echo "fatload \$isp_if \$isp_dev \$isp_ram_addr /ISPBOOOT.BIN ${i} ${p_pos}" >> ${O}
     block=$(printf '0x%x' $((i/512)))
-    echo "nand write \$isp_ram_addr \${isp_addr_nand_write_next} ${block}" >> ${O}
+    if [ "${p_flags}" != "0x0" ]; then
+      echo "setenv isp_nand_addr_write_bblk_${BBLK} \$isp_nand_addr" >> ${O}
+      echo "bblk write bblk \$isp_ram_addr \$isp_nand_addr ${i}" >> ${O}
+    elif [ "${part}" == "rootfs" ]; then
+      echo "ubi write.part \$isp_ram_addr ${part} ${i}" >> ${O}
+    else
+      echo "nand write \$isp_ram_addr \${isp_addr_nand_write_next} ${i}" >> ${O}
+    fi;
     p_pos=$(printf '0x%x' $((p_pos+${i})))
     p_emmc0=$(printf '0x%x' $((p_emmc0+(${i}/512))))
   done
-#  if [ "${part}" == "xboot1" ]; then
-#    echo "mmc partconf 0 0 0 0" >> ${O}
-#  fi;
+  if [ "${p_flags}" != "0x0" ]; then  BBLK=$(($BBLK+1));  fi;
   echo "" >> ${O}
-done;
+done <<< "$LLL"
 
 echo "" >> ${O}
 
 echo "echo programming header (boot parameters) ..." >> ${O}
-echo "bblk write bhdr auto 0 0x5800" >> ${O}
+echo "bblk write bhdr auto 0 ${BHDR_SZ}" >> ${O}
 echo "" >> ${O}
 
+# FIXME: really need?
 echo "setenv part_sizes uboot2_1Menv_512Kenv_redund_512Knonos_1Mdtb_256Kkernel_32Mrootfs_1024M" >> ${O}
 echo "" >> ${O}
 echo "setenv isp_addr_next" >> ${O}
