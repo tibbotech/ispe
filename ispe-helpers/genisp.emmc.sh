@@ -61,7 +61,7 @@ done <<< "$LLL"
 # generating partitions...
 i=-1
 echo -ne "setenv partitions \"uuid_disk=\${uuid_gpt_disk}" >> ${O}
-echo "${output}" | grep "filename:" | while read x part; do
+while read x part; do
   # do not mention xboot1 in GPT
   if [ "${part}" == "xboot1" ]; then  continue;  fi;
   i=$(($i+1))
@@ -76,7 +76,7 @@ echo "${output}" | grep "filename:" | while read x part; do
   echo -ne ";name=${part},uuid=\${uuid_gpt_${part}}" >> ${O}
   echo -ne ",start=${p_start}" >> ${O}
   echo -ne ",size=${p_size}" >> ${O}
-done
+done <<< "$LLL"
 echo "\"" >> ${O}
 echo "" >> ${O}
 
@@ -101,8 +101,7 @@ done
 echo "" >> ${O}
 
 # write the writers...
-
-echo "${output}" | grep "filename:" | while read x part; do
+while read x part; do
   echo "echo writing ${part} contents ..." >> ${O}
   pinfo=$(dv_part "${output}" "${part}")
   p_pos=$(dv_part_info "${pinfo}" "file offset: ")
@@ -132,10 +131,11 @@ echo "${output}" | grep "filename:" | while read x part; do
     echo "mmc partconf 0 0 0 0" >> ${O}
   fi;
   echo "" >> ${O}
-done;
+done <<< "$LLL"
 
 echo "" >> ${O}
 
+# FIXME: really need?
 echo "setenv part_sizes uboot2_1Menv_512Kenv_redund_512Knonos_1Mdtb_256Kkernel_32Mrootfs_1024M" >> ${O}
 echo "" >> ${O}
 echo "setenv isp_addr_next" >> ${O}
