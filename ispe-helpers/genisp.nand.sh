@@ -29,9 +29,6 @@ echo "setenv isp_mtdpart_size 0x\${isp_addr_next}" >> ${O}
 echo "mtdparts add nand0 \${isp_mtdpart_size}@0x00000000 nand_header" >> ${O}
 echo "printenv mtdparts" >> ${O}
 echo "" >> ${O}
-# u-boot CONFIG_ENV_OFFSET preconfigured value
-echo "setenv isp_nand_addr_1st_part 0x400000" >> ${O}
-echo "" >> ${O}
 
 # starting NAND partitions...
 

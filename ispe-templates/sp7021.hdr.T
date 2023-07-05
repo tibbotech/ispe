@@ -22,6 +22,9 @@ if test "$isp_force_to_abort" = yes ; then
     exit -1
 fi
 
+# u-boot CONFIG_ENV_OFFSET preconfigured value
+setenv isp_nand_addr_1st_part 0x400000
+
 echo Load ISP main script and run it ...
 if test "$isp_main_storage" = nand ; then
   fatload $isp_if $isp_dev $isp_ram_addr /ISPBOOOT.BIN {T_SIZE} {T_OFF}
