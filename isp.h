@@ -1,7 +1,7 @@
 // Defines accepted externally:
-// SOC_SPHE8368 : build for SPHE8368 SoC (header types are a bit different)
+// SOC_SPHE : build for SPHE (header types are a bit different)
 // example:
-// make CFLAGS+="-DSOC_SPHE8368"
+// make CFLAGS+="-DSOC_SPHE"
 
 #ifndef ISP_H
 #define ISP_H
@@ -33,7 +33,7 @@ struct partition_info_s {
     uint8_t  file_name[SIZE_FILE_NAME];  // file name of source (basename only)
     uint8_t  md5sum[36];
     uint32_t file_offset;                // offset in output file
-#ifdef SOC_SPHE8368
+#ifdef SOC_SPHE
     uint32_t file_size;                  // file size of the partition
     uint32_t padding0;
 #else
@@ -45,7 +45,7 @@ struct partition_info_s {
     // Reason: Start address of followings are calculated at run-time:
     //     Header, XBoot-1, UBoot-1, ..., and Partition-0.
     // reserved size for this partition, less than 4GB is #else
-#ifdef SOC_SPHE8368
+#ifdef SOC_SPHE
     uint32_t partition_size;
     uint32_t padding1;
 #else

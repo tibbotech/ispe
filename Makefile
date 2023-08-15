@@ -1,5 +1,5 @@
-# To build for SPHE8368 SoC run it as:
-# make CFLAGS+="-DSOC_SPHE8368"
+# To build for SPHE SoC run it as:
+# make CFLAGS+="-DSOC_SPHE"
 
 all: ispe
 
