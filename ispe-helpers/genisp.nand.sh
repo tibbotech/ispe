@@ -78,7 +78,7 @@ while read x part; do
   partsz=$(printf "0x%X" $p_size0)
   if [ "${part}" == "rootfs" ]; then  partsz="-";  fi;
   if [ "${p_flags}" != "0x0" ]; then
-    echo "setexpr isp_nand_addr 0x\${isp_addr_next}" >> ${O}
+    echo "setenv isp_nand_addr 0x\${isp_addr_next}" >> ${O}
   else
     echo "setexpr isp_nand_addr \$isp_nand_addr_1st_part + ${p_nand0}" >> ${O}
     echo "setenv isp_nand_addr 0x\${isp_nand_addr}" >> ${O}
