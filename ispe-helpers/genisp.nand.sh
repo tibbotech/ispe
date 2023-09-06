@@ -40,10 +40,10 @@ i=-1
 LLL=$(echo -e "${output}" | grep "filename:")
 while read x part; do
   # do not mention xboot1 in GPT
-  if [ "${part}" = "xboot1" ]; then  continue;  fi;
+#  if [ "${part}" = "xboot1" ]; then  continue;  fi;
   i=$(($i+1))
   pinfo=$(dv_part "${output}" "${part}")
-  p_start=$(dv_part_info "${pinfo}" "emmc part start block: ")
+  p_start=$(dv_part_info "${pinfo}" "nand part start addr: ")
   pA_size[$i]="-";
   pA_start[$i]="${p_start}"
   # if previous partition size is not defined - set it now
@@ -51,7 +51,7 @@ while read x part; do
   if [ $i -gt 0 ] && [ "${pA_size[$iP]}" = "-" ]; then
     p0=$(printf '%d' ${pA_start[$iP]})
     p1=$(printf '%d' ${pA_start[$i]})
-    pA_size[$iP]=$(((($p1-$p0)/2)))
+    pA_size[$iP]=$((($p1-$p0)))
   fi;
   # check if part size defined in IMG
   sz=$(dv_part_info "${pinfo}" "part size: ")
@@ -62,8 +62,10 @@ done <<< "$LLL"
 
 BHDR_SZ=""
 BBLK=0
+pi=-1
 # write the writers...
 while read x part; do
+  pi=$(($pi+1))
   echo "echo writing ${part} contents ..." >> ${O}
   pinfo=$(dv_part "${output}" "${part}")
   p_flags=$(dv_part_info "${pinfo}" "flags: ")
@@ -77,6 +79,7 @@ while read x part; do
     p_nand0="0x0"
   fi;
   partsz=$(printf "0x%X" $p_size0)
+#printf "${part}: ${partsz} : %X [%d]\n" ${pA_size[$pi]} $pi
   if [ "${part}" = "rootfs" ]; then  partsz="-";  fi;
   if [ "${p_flags}" != "0x0" ]; then
     echo "setenv isp_nand_addr 0x\${isp_addr_next}" >> ${O}
@@ -89,6 +92,7 @@ while read x part; do
   # normal partition - partsize "-" or 
 
   if [ "${p_flags}" = "0x0" ]; then
+    if [ "${pA_size[$pi]}" != "-" ] && [ "${pA_size[$pi]}" != "0" ]; then  partsz=$(printf "0x%X" ${pA_size[$pi]});  fi;
     echo "setenv isp_mtdpart_size ${partsz}" >> ${O}
     echo "mtdparts add nand0 \${isp_mtdpart_size}@\${isp_nand_addr} ${part}" >> ${O}
     echo "printenv mtdparts" >> ${O}
