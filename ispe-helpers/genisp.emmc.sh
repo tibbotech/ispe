@@ -38,7 +38,7 @@ i=-1
 LLL=$(echo -e "${output}" | grep "filename:")
 while read x part; do
   # do not mention xboot1 in GPT
-  if [ "${part}" == "xboot1" ]; then  continue;  fi;
+  if [ "${part}" = "xboot1" ]; then  continue;  fi;
   i=$(($i+1))
   pinfo=$(dv_part "${output}" "${part}")
   p_start=$(dv_part_info "${pinfo}" "emmc part start block: ")
@@ -46,7 +46,7 @@ while read x part; do
   pA_start[$i]="${p_start}"
   # if previous partition size is not defined - set it now
   iP=$(($i-1))
-  if [ $i -gt 0 ] && [ "${pA_size[$iP]}" == "-" ]; then
+  if [ $i -gt 0 ] && [ "${pA_size[$iP]}" = "-" ]; then
     p0=$(printf '%d' ${pA_start[$iP]})
     p1=$(printf '%d' ${pA_start[$i]})
     pA_size[$iP]=$(((($p1-$p0)/2)))
@@ -63,7 +63,7 @@ i=-1
 echo -ne "setenv partitions \"uuid_disk=\${uuid_gpt_disk}" >> ${O}
 while read x part; do
   # do not mention xboot1 in GPT
-  if [ "${part}" == "xboot1" ]; then  continue;  fi;
+  if [ "${part}" = "xboot1" ]; then  continue;  fi;
   i=$(($i+1))
   pinfo=$(dv_part "${output}" "${part}")
   p_start=$(dv_part_info "${pinfo}" "emmc part start block: ")
@@ -115,7 +115,7 @@ while read x part; do
     echo "Warning: 'emmc part start block' is not defined for ${part}"
     p_emmc0="0x0"
   fi;
-  if [ "${part}" == "xboot1" ]; then
+  if [ "${part}" = "xboot1" ]; then
     echo "mmc partconf 0 0 7 1" >> ${O}
   fi;
   # FIXME: in cycle p_emmc += off
@@ -127,7 +127,7 @@ while read x part; do
     p_pos=$(printf '0x%x' $((p_pos+${i})))
     p_emmc0=$(printf '0x%x' $((p_emmc0+(${i}/512))))
   done
-  if [ "${part}" == "xboot1" ]; then
+  if [ "${part}" = "xboot1" ]; then
     echo "mmc partconf 0 0 0 0" >> ${O}
   fi;
   echo "" >> ${O}
