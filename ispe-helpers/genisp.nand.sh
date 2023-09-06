@@ -23,7 +23,6 @@ echo "" >> ${O}
 # clean partitions
 echo "mtdparts default && mtdparts delall" >> ${O}
 echo "echo \"1st part: \$isp_nand_addr_1st_part\"" >> ${O}
-echo "# setenv isp_nand_addr_1st_part 0x400000" >> ${O}
 echo "" >> ${O}
 
 echo "setenv isp_addr_next \${nand_erasesize}" >> ${O}
@@ -88,13 +87,6 @@ while read x part; do
   fi;
 #  printf "echo partition: %s, start from \$isp_nand_addr, size: 0x%X, programmed size: 0x%X\n" $part $p_size0 $p_size1 >> ${O}
   # normal partition - partsize "-" or 
-#  if [ "${p_flags}" != "0x0" ]; then
-#    echo "setexpr isp_mtdpart_size \${isp_nand_addr_1st_part} - \${isp_nand_addr}" >> ${O}
-#    echo "setenv isp_mtdpart_size 0x\${isp_mtdpart_size}" >> ${O}
-#  else
-#    echo "setenv isp_mtdpart_size ${partsz}" >> ${O}
-#  fi;
-#  echo "mtdparts add nand0 \${isp_mtdpart_size}@\${isp_nand_addr} ${part}" >> ${O}
 
   if [ "${p_flags}" = "0x0" ]; then
     echo "setenv isp_mtdpart_size ${partsz}" >> ${O}
