@@ -22,6 +22,8 @@ echo "nand erase.chip && nand bad" >> ${O}
 echo "" >> ${O}
 # clean partitions
 echo "mtdparts default && mtdparts delall" >> ${O}
+echo "echo \"1st part: \$isp_nand_addr_1st_part\"" >> ${O}
+echo "# setenv isp_nand_addr_1st_part 0x400000" >> ${O}
 echo "" >> ${O}
 
 echo "setenv isp_addr_next \${nand_erasesize}" >> ${O}
@@ -39,7 +41,7 @@ i=-1
 LLL=$(echo -e "${output}" | grep "filename:")
 while read x part; do
   # do not mention xboot1 in GPT
-  if [ "${part}" == "xboot1" ]; then  continue;  fi;
+  if [ "${part}" = "xboot1" ]; then  continue;  fi;
   i=$(($i+1))
   pinfo=$(dv_part "${output}" "${part}")
   p_start=$(dv_part_info "${pinfo}" "emmc part start block: ")
@@ -47,7 +49,7 @@ while read x part; do
   pA_start[$i]="${p_start}"
   # if previous partition size is not defined - set it now
   iP=$(($i-1))
-  if [ $i -gt 0 ] && [ "${pA_size[$iP]}" == "-" ]; then
+  if [ $i -gt 0 ] && [ "${pA_size[$iP]}" = "-" ]; then
     p0=$(printf '%d' ${pA_start[$iP]})
     p1=$(printf '%d' ${pA_start[$i]})
     pA_size[$iP]=$(((($p1-$p0)/2)))
@@ -69,30 +71,38 @@ while read x part; do
   p_pos=$(dv_part_info "${pinfo}" "file offset: ")
   p_size0=$(dv_part_info "${pinfo}" "part size: ")
   p_size1=$(dv_part_info "${pinfo}" "file size: ")
-  if [ "x${BHDR_SZ}" == "x" ]; then  BHDR_SZ=$(printf "0x%X" ${p_size1});  fi;
+  if [ "x${BHDR_SZ}" = "x" ]; then  BHDR_SZ=$(printf "0x%X" ${p_size1});  fi;
   p_nand0=$(dv_part_info "${pinfo}" "nand part start addr: ")
   if [ -z "${p_nand0}" ]; then
     echo "Warning: 'nand part start addr' is not defined for ${part}"
     p_nand0="0x0"
   fi;
   partsz=$(printf "0x%X" $p_size0)
-  if [ "${part}" == "rootfs" ]; then  partsz="-";  fi;
+  if [ "${part}" = "rootfs" ]; then  partsz="-";  fi;
   if [ "${p_flags}" != "0x0" ]; then
     echo "setenv isp_nand_addr 0x\${isp_addr_next}" >> ${O}
+    echo "setenv isp_nand_addr_write_bblk_${BBLK} \$isp_nand_addr" >> ${O}
   else
     echo "setexpr isp_nand_addr \$isp_nand_addr_1st_part + ${p_nand0}" >> ${O}
     echo "setenv isp_nand_addr 0x\${isp_nand_addr}" >> ${O}
   fi;
-  printf "echo partition: %s, start from \$isp_nand_addr, size: 0x%X, programmed size: 0x%X\n" $part $p_size0 $p_size1 >> ${O}
-  if [ "${p_flags}" != "0x0" ]; then
-    echo "setexpr isp_mtdpart_size \${isp_nand_addr_1st_part} - \${isp_nand_addr}" >> ${O}
-    echo "setenv isp_mtdpart_size 0x\${isp_mtdpart_size}" >> ${O}
-  else
-    echo "setenv isp_mtdpart_size ${partsz}" >> ${O}
-  fi;
-  echo "mtdparts add nand0 \${isp_mtdpart_size}@\${isp_nand_addr} ${part}" >> ${O}
+#  printf "echo partition: %s, start from \$isp_nand_addr, size: 0x%X, programmed size: 0x%X\n" $part $p_size0 $p_size1 >> ${O}
+  # normal partition - partsize "-" or 
+#  if [ "${p_flags}" != "0x0" ]; then
+#    echo "setexpr isp_mtdpart_size \${isp_nand_addr_1st_part} - \${isp_nand_addr}" >> ${O}
+#    echo "setenv isp_mtdpart_size 0x\${isp_mtdpart_size}" >> ${O}
+#  else
+#    echo "setenv isp_mtdpart_size ${partsz}" >> ${O}
+#  fi;
+#  echo "mtdparts add nand0 \${isp_mtdpart_size}@\${isp_nand_addr} ${part}" >> ${O}
 
-  if [ "${part}" == "rootfs" ]; then
+  if [ "${p_flags}" = "0x0" ]; then
+    echo "setenv isp_mtdpart_size ${partsz}" >> ${O}
+    echo "mtdparts add nand0 \${isp_mtdpart_size}@\${isp_nand_addr} ${part}" >> ${O}
+    echo "printenv mtdparts" >> ${O}
+  fi;
+
+  if [ "${part}" = "rootfs" ]; then
     echo "ubi part rootfs 2048" >> ${O}
     echo "ubi create rootfs ${partsz}" >> ${O}
   fi;
@@ -102,9 +112,8 @@ while read x part; do
     echo "fatload \$isp_if \$isp_dev \$isp_ram_addr /ISPBOOOT.BIN ${i} ${p_pos}" >> ${O}
     block=$(printf '0x%x' $((i/512)))
     if [ "${p_flags}" != "0x0" ]; then
-      echo "setenv isp_nand_addr_write_bblk_${BBLK} \$isp_nand_addr" >> ${O}
       echo "bblk write bblk \$isp_ram_addr \$isp_nand_addr ${i}" >> ${O}
-    elif [ "${part}" == "rootfs" ]; then
+    elif [ "${part}" = "rootfs" ]; then
       echo "ubi write.part \$isp_ram_addr ${part} ${i}" >> ${O}
     else
       echo "nand write \$isp_ram_addr \${isp_addr_nand_write_next} ${i}" >> ${O}
@@ -112,8 +121,14 @@ while read x part; do
     p_pos=$(printf '0x%x' $((p_pos+${i})))
     p_emmc0=$(printf '0x%x' $((p_emmc0+(${i}/512))))
   done
-  if [ "${p_flags}" != "0x0" ]; then  BBLK=$(($BBLK+1));  fi;
+
+  if [ "${p_flags}" != "0x0" ]; then
+    echo "setexpr isp_mtdpart_size \${isp_nand_addr_1st_part} - \${isp_nand_addr}" >> ${O}
+    echo "mtdparts add nand0 \${isp_mtdpart_size}@\${isp_nand_addr} ${part}" >> ${O}
+    echo "printenv mtdparts" >> ${O}
+  fi;
   echo "" >> ${O}
+  if [ "${p_flags}" != "0x0" ]; then  BBLK=$(($BBLK+1));  fi;
 done <<< "$LLL"
 
 echo "" >> ${O}
