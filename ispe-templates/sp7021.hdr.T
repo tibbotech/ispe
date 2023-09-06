@@ -27,7 +27,9 @@ setenv isp_nand_addr_1st_part 0x400000
 
 echo Load ISP main script and run it ...
 if test "$isp_main_storage" = nand ; then
+  echo "1'st part 0: $isp_nand_addr_1st_part"
   fatload $isp_if $isp_dev $isp_ram_addr /ISPBOOOT.BIN {T_SIZE} {T_OFF}
+  echo "1'st part 1: $isp_nand_addr_1st_part"
 elif test "$isp_main_storage" = emmc ; then
   fatload $isp_if $isp_dev $isp_ram_addr /ISPBOOOT.BIN {T_SIZE} {T_OFF}
 else
