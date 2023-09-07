@@ -94,6 +94,7 @@ while read x part; do
   if [ "${p_flags}" = "0x0" ]; then
     if [ "${pA_size[$pi]}" != "-" ] && [ "${pA_size[$pi]}" != "0" ]; then  partsz=$(printf "0x%X" ${pA_size[$pi]});  fi;
     echo "setenv isp_mtdpart_size ${partsz}" >> ${O}
+    echo "echo mtdparts add nand0 \${isp_mtdpart_size}@\${isp_nand_addr} ${part}" >> ${O}
     echo "mtdparts add nand0 \${isp_mtdpart_size}@\${isp_nand_addr} ${part}" >> ${O}
     echo "printenv mtdparts" >> ${O}
   fi;
@@ -126,6 +127,8 @@ while read x part; do
 
   if [ "${p_flags}" != "0x0" ]; then
     echo "setexpr isp_mtdpart_size \${isp_addr_next} - \${isp_nand_addr}" >> ${O}
+    echo "setenv isp_mtdpart_size 0x\${isp_mtdpart_size}" >> ${O}
+    echo "echo mtdparts add nand0 \${isp_mtdpart_size}@\${isp_nand_addr} ${part}" >> ${O}
     echo "mtdparts add nand0 \${isp_mtdpart_size}@\${isp_nand_addr} ${part}" >> ${O}
     echo "printenv mtdparts" >> ${O}
   fi;
