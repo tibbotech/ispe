@@ -103,6 +103,7 @@ while read x part; do
     echo "ubi create rootfs ${partsz}" >> ${O}
   fi;
   # FIXME: in cycle p_emmc += off
+  wN=0
   blocks=$(dv_blocks "$p_size1" 0x200000)
   for i in $blocks; do
     echo "fatload \$isp_if \$isp_dev \$isp_ram_addr /ISPBOOOT.BIN ${i} ${p_pos}" >> ${O}
@@ -112,10 +113,15 @@ while read x part; do
     elif [ "${part}" = "rootfs" ]; then
       echo "ubi write.part \$isp_ram_addr ${part} ${i}" >> ${O}
     else
-      echo "nand write \$isp_ram_addr \${isp_addr_nand_write_next} ${i}" >> ${O}
+      if [ $wN -eq 0 ]; then
+        echo "nand write \$isp_ram_addr \${isp_nand_addr} ${i}" >> ${O}
+      else
+        echo "nand write \$isp_ram_addr \${isp_addr_nand_write_next} ${i}" >> ${O}
+      fi;
     fi;
     p_pos=$(printf '0x%x' $((p_pos+${i})))
     p_emmc0=$(printf '0x%x' $((p_emmc0+(${i}/512))))
+    wN=$(($wN+1));
   done
 
   if [ "${p_flags}" != "0x0" ]; then
