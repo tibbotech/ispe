@@ -159,6 +159,7 @@ echo "setenv isp_image_header_offset" >> ${O}
 echo "setenv isp_main_storage" >> ${O}
 echo "echo Following environment variables will be saved:" >> ${O}
 echo "printenv" >> ${O}
+echo "mtdparts" >> ${O}
 echo "env save" >> ${O}
 echo "env save" >> ${O}
 echo "setenv isp_all_or_update_done 0x01" >> ${O}
