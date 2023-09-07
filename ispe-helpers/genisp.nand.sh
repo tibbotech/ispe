@@ -125,7 +125,7 @@ while read x part; do
   done
 
   if [ "${p_flags}" != "0x0" ]; then
-    echo "setexpr isp_mtdpart_size \${isp_nand_addr_1st_part} - \${isp_nand_addr}" >> ${O}
+    echo "setexpr isp_mtdpart_size \${isp_addr_next} - \${isp_nand_addr}" >> ${O}
     echo "mtdparts add nand0 \${isp_mtdpart_size}@\${isp_nand_addr} ${part}" >> ${O}
     echo "printenv mtdparts" >> ${O}
   fi;
