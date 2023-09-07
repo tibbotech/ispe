@@ -56,6 +56,10 @@ make CFLAGS+="-DSOC_SPHE"
 ```
 ISPEDIR=. ispe-helpers/genisp.emmc.sh ./ISPBOOOT.BIN ./emmc.txt
 ```
+#### Generate NAND ISP script for the existing image
+```
+ISPEDIR=. ispe-helpers/genisp.nand.sh ./ISPBOOOT.BIN ./nand.txt
+```
 
 #### Show ISPBOOOT.BIN data
 ```
