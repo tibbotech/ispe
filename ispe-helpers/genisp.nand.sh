@@ -142,9 +142,6 @@ echo "echo programming header (boot parameters) ..." >> ${O}
 echo "bblk write bhdr auto 0 ${BHDR_SZ}" >> ${O}
 echo "" >> ${O}
 
-# FIXME: really need?
-echo "setenv part_sizes uboot2_1Menv_512Kenv_redund_512Knonos_1Mdtb_256Kkernel_32Mrootfs_1024M" >> ${O}
-echo "" >> ${O}
 echo "setenv isp_addr_next" >> ${O}
 echo "setenv isp_addr_nand_read_next" >> ${O}
 echo "setenv isp_addr_nand_write_next" >> ${O}
