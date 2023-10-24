@@ -112,7 +112,9 @@ while read x part; do
     if [ "${p_flags}" != "0x0" ]; then
       echo "bblk write bblk \$isp_ram_addr \$isp_nand_addr ${i}" >> ${O}
     elif [ "${part}" = "rootfs" ]; then
-      echo "ubi write.part \$isp_ram_addr ${part} ${i}" >> ${O}
+      printf "ubi write.part \$isp_ram_addr ${part} ${i}" >> ${O}
+      if [ $wN == 0 ]; then  printf " 0x%x" ${p_size1} >> ${O};  fi;
+      echo "" >> ${O}
     else
       if [ $wN -eq 0 ]; then
         echo "nand write \$isp_ram_addr \${isp_nand_addr} ${i}" >> ${O}
