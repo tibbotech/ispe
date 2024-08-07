@@ -382,11 +382,11 @@ int isp_head_exts( const char *_fname) {
  sprintf( buf, TMP_PFX"h.script.raw");
  if ( !( Ofp = fopen( buf, "wb"))) {
    ERR( "create '%s': %s(%d)", buf, strerror(errno), errno);
-   fclose( Ifp);  return( 1);  }
+   return( 1);  }
  memset( buf, 0, sizeof( buf));
  if ( fwrite( HDR.init_script, sizeof( buf), 1, Ofp) != 1) {
    ERR( "write %ld bytes failed: %s(%d)", sizeof( buf), strerror( errno), errno);
-   fclose( Ifp);  fclose( Ofp);  return( 1);  }
+   fclose( Ofp);  return( 1);  }
  fclose( Ofp);
  DBG(1, "Trying to extract clear text");
  isp_hdr_script_t xxx0;
@@ -395,14 +395,14 @@ int isp_head_exts( const char *_fname) {
  size_t h_off = FIT_HDR_OFF + sizeof( xxx0);
  if ( xxx0.l > sizeof( HDR.init_script) - h_off) {
    ERR( "text size %d > %ld (%ld-%ld)", xxx0.l, (sizeof( HDR.init_script) - h_off), sizeof( HDR.init_script), h_off);
-   fclose( Ifp);  return( 1);  }
+   return( 1);  }
  sprintf( buf, TMP_PFX"h.script.txt");
  if ( !( Ofp = fopen( buf, "wb"))) {
    ERR( "can't create file %s: %s(%d)", buf, strerror(errno), errno);
-   fclose( Ifp);  return( 1);  }
+   return( 1);  }
  if ( fwrite( HDR.init_script + h_off, 1, xxx0.l, Ofp) != xxx0.l) {
    ERR( "write %ld bytes failed: %s(%d)", sizeof( buf), strerror( errno), errno);
-   fclose( Ifp);  return( 1);  }
+   fclose( Ofp);  return( 1);  }
  fclose( Ofp);
  DBG(3, "%s() /", __FUNCTION__);
  return( 0);  }
