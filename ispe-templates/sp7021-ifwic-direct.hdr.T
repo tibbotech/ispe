@@ -16,13 +16,15 @@ fatinfo $isp_if $isp_dev
 fatls   $isp_if $isp_dev /
 
 echo Starting Linux ...
-#load usb 0:1 ${addr_dst_dtb} /dtb
-#load usb 0:1 ${addr_dst_kernel} /uImage
 load ${isp_if} ${isp_dev}:1 ${addr_dst_dtb} /dtb
 load ${isp_if} ${isp_dev}:1 ${addr_dst_kernel} /uImage
 
-setenv args_kern
-setenv root 'root=/dev/sda2 rootwait rw'
-setenv bootargs ${b_c} ${root} ${args_kern}
+if test "$isp_if" = usb; then
+  setenv curr_root 'root=/dev/sda2 rootwait rw'
+elif test "$isp_if" = mmc ; then
+  setenv curr_root 'root=/dev/mmcblk1p2 rw rootwait'
+fi;
+
+setenv bootargs ${b_c} ${curr_root} ${args_kern}
 
 bootm ${addr_dst_kernel} - ${addr_dst_dtb}
