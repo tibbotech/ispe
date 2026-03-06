@@ -100,8 +100,6 @@ echo "${output}" | grep "filename:" | while read x part; do
 done
 echo "" >> ${O}
 
-echo "setexpr werr 0" >> ${O}
-
 # write the writers...
 while read x part; do
   echo "echo writing ${part} contents ..." >> ${O}
@@ -120,31 +118,20 @@ while read x part; do
   if [ "${part}" = "xboot1" ]; then
     echo "mmc partconf 0 0 7 1" >> ${O}
   fi;
-  Xpsize=$(printf '0x%x' $((p_size1)))
-  echo "setexpr xsize ${Xpsize}" >> ${O}
-  echo "setexpr xpos ${p_pos}" >> ${O}
-  echo "setexpr p_emmc0 ${p_emmc0}" >> ${O}
-  echo "setexpr i 0x2000000" >> ${O}
-  echo "while itest \$xsize -gt 0; do" >> ${O}
-  echo "  if itest \$xsize -lt \$i; then setexpr i 0x\$xsize % 0x2000000; fi" >> ${O}
-  echo "  fatload \$isp_if \$isp_dev \$isp_ram_addr /ISPBOOOT.BIN 0x\$i 0x\$xpos" >> ${O}
-  echo "  setexpr xsize 0x\$xsize - 0x\$i;" >> ${O}
-  echo "  setexpr xpos 0x\$xpos + 0x\$i" >> ${O}
-  echo "  md5sum \$isp_ram_addr 0x\$filesize sum0;" >> ${O}
-  echo "  setexpr block 0x\$filesize / 0x200" >> ${O}
-  echo "  mmc write \$isp_ram_addr \$p_emmc0 \$block" >> ${O}
-  echo "  mmc read \$isp_ram_addr \$p_emmc0 \$block" >> ${O}
-  echo "  md5sum \$isp_ram_addr 0x\$filesize sum1;" >> ${O}
-  echo "  if test \"\$sum0\" != \"\$sum1\"; then setexpr werr 1; echo \"MD5 error\"; break; fi" >> ${O}
-  echo "  setexpr p_emmc0 \$p_emmc0 + \$block" >> ${O}
-  echo "done;" >> ${O}
+  # FIXME: in cycle p_emmc += off
+  blocks=$(dv_blocks "$p_size" 0x200000)
+  for i in $blocks; do
+    echo "fatload \$isp_if \$isp_dev \$isp_ram_addr /ISPBOOOT.BIN ${i} ${p_pos}" >> ${O}
+    block=$(printf '0x%x' $((i/512)))
+    echo "mmc write \$isp_ram_addr ${p_emmc0} ${block}" >> ${O}
+    p_pos=$(printf '0x%x' $((p_pos+${i})))
+    p_emmc0=$(printf '0x%x' $((p_emmc0+(${i}/512))))
+  done
   if [ "${part}" = "xboot1" ]; then
     echo "mmc partconf 0 0 0 0" >> ${O}
   fi;
-  echo "if test \$werr -eq 1; then echo Error writing ${part};  exit 1; fi" >> ${O}
   echo "" >> ${O}
 done <<< "$LLL"
-
 
 echo "" >> ${O}
 
