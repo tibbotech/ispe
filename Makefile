@@ -13,7 +13,7 @@ install:
 	install -p -m0755 ispe $(DESTDIR)/
 	install -p -m0755 ispe-helpers/genisp.*.sh $(DESTDIR)/ispe-helpers/
 	install -p -m0755 ispe-helpers/script_enc.sh $(DESTDIR)/ispe-helpers/
-	install -p -m0644 ispe-helpers/sh.defs $(DESTDIR)/ispe-helpers/
+	install -p -m0644 ispe-helpers/*.defs $(DESTDIR)/ispe-helpers/
 	install -p -m0644 ispe-templates/*.hdr.T $(DESTDIR)/ispe-templates/
 
 clean:
