@@ -10,13 +10,21 @@ fi;
 
 . ${ISPEDIR}ispe-helpers/sh.defs
 
+P=${PROGRESS:=def}
+
+if [ -f "${ISPEDIR}ispe-helpers/progress_${P}.defs" ]; then
+  . ${ISPEDIR}ispe-helpers/progress_${P}.defs
+fi;
+
 O="${2:-isp.txt}"
 
 output=$(${ISPEDIR}ispe ${1} list)
 if [ $? -ne 0 ]; then  echo "${output}";  exit 1;  fi;
 
+echo -ne "${PROGRESS_INI}\n" > ${O}
+
 # init EMMC first
-echo "echo \"Initializing EMMC...\"" > ${O}
+echo "echo \"Initializing EMMC...\"" >> ${O}
 echo "mmc dev 0 && mmc rescan" >> ${O}
 echo "" >> ${O}
 # fill GPT with 0xFF
@@ -125,7 +133,9 @@ while read x part; do
   echo "setexpr xpos ${p_pos}" >> ${O}
   echo "setexpr p_emmc0 ${p_emmc0}" >> ${O}
   echo "setexpr i 0x2000000" >> ${O}
+  echo "setexpr progress 0" >> ${O}
   echo "while itest \$xsize -gt 0; do" >> ${O}
+  echo -ne "${PROGRESS_SET}" >> ${O}
   echo "  if itest \$xsize -lt \$i; then setexpr i 0x\$xsize % 0x2000000; fi" >> ${O}
   echo "  fatload \$isp_if \$isp_dev \$isp_ram_addr /ISPBOOOT.BIN 0x\$i 0x\$xpos" >> ${O}
   echo "  setexpr xsize 0x\$xsize - 0x\$i;" >> ${O}
@@ -135,18 +145,21 @@ while read x part; do
   echo "  mmc write \$isp_ram_addr \$p_emmc0 \$block" >> ${O}
   echo "  mmc read \$isp_ram_addr \$p_emmc0 \$block" >> ${O}
   echo "  md5sum \$isp_ram_addr 0x\$filesize sum1;" >> ${O}
-  echo "  if test \"\$sum0\" != \"\$sum1\"; then setexpr werr 1; echo \"MD5 error\"; break; fi" >> ${O}
+  echo "  if test \"\$sum0\" != \"\$sum1\"; then setexpr werr 1; echo \"MD5 error\";  ${PROGRESS_ERR} break; fi" >> ${O}
   echo "  setexpr p_emmc0 \$p_emmc0 + \$block" >> ${O}
+  echo "  setexpr progress \$progress + 1" >> ${O}
   echo "done;" >> ${O}
   if [ "${part}" = "xboot1" ]; then
     echo "mmc partconf 0 0 0 0" >> ${O}
   fi;
-  echo "if test \$werr -eq 1; then echo Error writing ${part};  exit 1; fi" >> ${O}
+  echo "if test \$werr -eq 1; then echo Error writing ${part};  ${PROGRESS_ERR}  exit 1; fi" >> ${O}
   echo "" >> ${O}
 done <<< "$LLL"
 
 
 echo "" >> ${O}
+
+echo "if itest \$werr -eq 0; then ${PROGRESS_OKA};  fi; " >> ${O}
 
 # FIXME: really need?
 echo "setenv part_sizes uboot2_1Menv_512Kenv_redund_512Knonos_1Mdtb_256Kkernel_32Mrootfs_1024M" >> ${O}

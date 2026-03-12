@@ -1,0 +1,8 @@
+PROGRESS_INI="gpio set 6;  gpio set 7;\n"
+
+PROGRESS_SET="\
+if test \$progress -gt 4; then setexpr progress 0;  fi;\n\
+tpsleds_val 0;  tpsleds_set \$progress 1\n"
+
+PROGRESS_OKA="gpio clear 6;\n"
+PROGRESS_ERR="gpio clear 7;\n"

@@ -1,0 +1,4 @@
+PROGRESS_INI="echo starting...;\n"
+PROGRESS_SET="echo progress \$progress;\n"
+PROGRESS_OKA="echo OK;\n"
+PROGRESS_ERR="echo ERR;\n"
