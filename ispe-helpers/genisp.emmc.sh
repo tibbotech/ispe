@@ -11,6 +11,7 @@ fi;
 . ${ISPEDIR}ispe-helpers/sh.defs
 
 P=${PROGRESS:=def}
+VERIFY=${VERIFY:=0}
 
 if [ -f "${ISPEDIR}ispe-helpers/progress_${P}.defs" ]; then
   . ${ISPEDIR}ispe-helpers/progress_${P}.defs
@@ -140,12 +141,14 @@ while read x part; do
   echo "  fatload \$isp_if \$isp_dev \$isp_ram_addr /ISPBOOOT.BIN 0x\$i 0x\$xpos" >> ${O}
   echo "  setexpr xsize 0x\$xsize - 0x\$i;" >> ${O}
   echo "  setexpr xpos 0x\$xpos + 0x\$i" >> ${O}
-  echo "  md5sum \$isp_ram_addr 0x\$filesize sum0;" >> ${O}
   echo "  setexpr block 0x\$filesize / 0x200" >> ${O}
   echo "  mmc write \$isp_ram_addr \$p_emmc0 \$block" >> ${O}
-  echo "  mmc read \$isp_ram_addr \$p_emmc0 \$block" >> ${O}
-  echo "  md5sum \$isp_ram_addr 0x\$filesize sum1;" >> ${O}
-  echo "  if test \"\$sum0\" != \"\$sum1\"; then setexpr werr 1; echo \"MD5 error\";  ${PROGRESS_ERR} break; fi" >> ${O}
+  if [ ${VERIFY} -ne 0 ]; then
+    echo "  md5sum \$isp_ram_addr 0x\$filesize sum0;" >> ${O}
+    echo "  mmc read \$isp_ram_addr \$p_emmc0 \$block" >> ${O}
+    echo "  md5sum \$isp_ram_addr 0x\$filesize sum1;" >> ${O}
+    echo "  if test \"\$sum0\" != \"\$sum1\"; then setexpr werr 1; echo \"MD5 error\";  ${PROGRESS_ERR} break; fi" >> ${O}
+  fi;
   echo "  setexpr p_emmc0 \$p_emmc0 + \$block" >> ${O}
   echo "  setexpr progress \$progress + 1" >> ${O}
   echo "done;" >> ${O}
