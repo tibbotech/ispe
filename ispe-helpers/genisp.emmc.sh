@@ -147,7 +147,7 @@ while read x part; do
     echo "  md5sum \$isp_ram_addr 0x\$filesize sum0;" >> ${O}
     echo "  mmc read \$isp_ram_addr \$p_emmc0 \$block" >> ${O}
     echo "  md5sum \$isp_ram_addr 0x\$filesize sum1;" >> ${O}
-    echo "  if test \"\$sum0\" != \"\$sum1\"; then setexpr werr 1; echo \"MD5 error\";  ${PROGRESS_ERR} break; fi" >> ${O}
+    echo "  if test \"\$sum0\" != \"\$sum1\"; then setexpr werr 1; echo \"MD5 error\";  ${PROGRESS_ERR};  break; fi" >> ${O}
   fi;
   echo "  setexpr p_emmc0 \$p_emmc0 + \$block" >> ${O}
   echo "  setexpr progress \$progress + 1" >> ${O}
@@ -155,14 +155,14 @@ while read x part; do
   if [ "${part}" = "xboot1" ]; then
     echo "mmc partconf 0 0 0 0" >> ${O}
   fi;
-  echo "if test \$werr -eq 1; then echo Error writing ${part};  ${PROGRESS_ERR}  exit 1; fi" >> ${O}
+  echo "if test \$werr -eq 1; then echo Error writing ${part};  ${PROGRESS_ERR};  exit 1; fi" >> ${O}
   echo "" >> ${O}
 done <<< "$LLL"
 
 
 echo "" >> ${O}
 
-echo "if itest \$werr -eq 0; then ${PROGRESS_OKA};  fi; " >> ${O}
+echo -ne "if itest \$werr -eq 0; then ${PROGRESS_OKA}; fi;" >> ${O}
 
 # FIXME: really need?
 echo "setenv part_sizes uboot2_1Menv_512Kenv_redund_512Knonos_1Mdtb_256Kkernel_32Mrootfs_1024M" >> ${O}
